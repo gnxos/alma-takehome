@@ -3,14 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import CORS_ORIGINS
-from app.database.base import Base
-from app.database.session import engine
-# Import models before create_all so SQLAlchemy has registered their tables.
-from app.models import Lead  # noqa: F401
+from app.database.migrations import init_db
 
 
 def create_app() -> FastAPI:
-    Base.metadata.create_all(bind=engine)
+    init_db()
     application = FastAPI(title="Lead Management API", version="1.0.0")
 
     application.add_middleware(

@@ -25,6 +25,7 @@ backend/app/
 
 backend/tests/
 ├── api/             # Auth and lead endpoint integration tests
+├── database/        # Schema initialization and compatibility migration tests
 ├── repositories/    # Persistence and reference-collision integration tests
 └── services/        # Email and resume validation unit tests
 

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/Button";
-import { DownloadIcon, EyeIcon } from "@/components/ui/icons";
+import { DownloadIcon, ExternalLinkIcon } from "@/components/ui/icons";
 import { resumeUrl } from "../api";
 import type { Lead } from "../types";
 import { StatusBadge } from "./StatusBadge";
@@ -47,6 +47,7 @@ export function LeadsTable({
         <table className="w-full text-left text-body-md">
           <thead className="bg-paper-100">
             <tr>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Id</th>
               <th className="h-11 px-4 text-label-sm text-ink-700">Name</th>
               <th className="h-11 px-4 text-label-sm text-ink-700">Email</th>
               <th className="h-11 px-4 text-label-sm text-ink-700">Resume</th>
@@ -65,13 +66,13 @@ export function LeadsTable({
                 className="h-14 cursor-pointer border-t border-paper-100 hover:bg-paper-50"
               >
                 <td className="whitespace-nowrap px-4">
-                  <span className="inline-flex items-center gap-1.5 text-ink-900">
-                    {lead.first_name} {lead.last_name}
-                    <EyeIcon className="size-3.5 text-ink-400" />
-                  </span>
-                  <p className="font-mono-alma text-mono-sm text-brass-500">
+                  <span className="inline-flex items-center gap-1.5 font-mono-alma text-mono-sm text-brass-500">
                     {lead.reference_number}
-                  </p>
+                    <ExternalLinkIcon className="size-3.5 text-ink-400" />
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 text-ink-900">
+                  {lead.first_name} {lead.last_name}
                 </td>
                 <td className="px-4 font-mono-alma text-mono-sm text-ink-700">
                   {lead.email}
