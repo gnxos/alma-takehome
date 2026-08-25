@@ -1,26 +1,29 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import CORS_ORIGINS
-from app.database import init_db
-from app.routers import auth, leads
-
-init_db()
-
-app = FastAPI(title="Lead Management API", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(auth.router)
-app.include_router(leads.router)
+from app.api.router import api_router
+from app.core.config import CORS_ORIGINS
+from app.database.migrations import init_db
 
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+def create_app() -> FastAPI:
+    init_db()
+    application = FastAPI(title="Lead Management API", version="1.0.0")
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    application.include_router(api_router)
+
+    @application.get("/api/health", tags=["health"])
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return application
+
+
+app = create_app()

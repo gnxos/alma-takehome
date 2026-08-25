@@ -5,13 +5,13 @@
 !.env.example
 !.env.*.example
 
-# OS & Editor
+# OS and editors
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# Python & Backend
+# Python and backend
 __pycache__/
 *.py[cod]
 *$py.class
@@ -23,7 +23,7 @@ venv/
 uploads/
 /backend/uploads/
 
-# Node & Frontend
+# Node and frontend
 node_modules/
 .next/
 /frontend/.next/
