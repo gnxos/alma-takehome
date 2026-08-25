@@ -96,21 +96,17 @@ def test_download_resume_by_reference_number(client):
     assert response.content == resume_bytes
 
 
-def test_create_lead_triggers_email_notifications(client, monkeypatch):
-    from app.services import email_notifications
-
-    notified = []
-    monkeypatch.setattr(
-        email_notifications,
-        "send_lead_notifications",
-        notified.append,
-    )
-
+def test_create_lead_triggers_both_email_methods(client, email_service):
     response = create_lead(client)
 
     assert response.status_code == 201
-    assert len(notified) == 1
-    assert notified[0].email == "ada@example.com"
+    email_service.send_prospect_confirmation.assert_called_once()
+    email_service.send_attorney_notification.assert_called_once()
+    prospect_lead = email_service.send_prospect_confirmation.call_args.args[0]
+    attorney_lead = email_service.send_attorney_notification.call_args.args[0]
+    assert prospect_lead.id == response.json()["id"]
+    assert prospect_lead.email == "ada@example.com"
+    assert attorney_lead.id == prospect_lead.id
 
 
 def test_create_lead_accepts_docx(client):
@@ -123,7 +119,7 @@ def test_create_lead_accepts_docx(client):
     assert response.status_code == 201
 
 
-def test_create_lead_rejects_bad_extension(client):
+def test_create_lead_rejects_bad_extension(client, email_service):
     files = {"resume": ("resume.exe", io.BytesIO(b"nope"), "application/octet-stream")}
     response = client.post(
         "/api/leads",
@@ -131,11 +127,74 @@ def test_create_lead_rejects_bad_extension(client):
         files=files,
     )
     assert response.status_code == 400
+    email_service.send_prospect_confirmation.assert_not_called()
+    email_service.send_attorney_notification.assert_not_called()
 
 
-def test_create_lead_rejects_invalid_email(client):
+def test_create_lead_rejects_invalid_email(client, email_service):
     response = create_lead(client, email="not-an-email")
     assert response.status_code == 422
+    email_service.send_prospect_confirmation.assert_not_called()
+    email_service.send_attorney_notification.assert_not_called()
+
+
+def test_create_lead_rejects_missing_resume_without_sending_email(
+    client, email_service
+):
+    response = client.post(
+        "/api/leads",
+        data={
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+            "email": "ada@example.com",
+        },
+    )
+
+    assert response.status_code == 422
+    email_service.send_prospect_confirmation.assert_not_called()
+    email_service.send_attorney_notification.assert_not_called()
+
+
+def test_database_failure_cleans_upload_and_does_not_send_email(
+    client, email_service, monkeypatch
+):
+    from app.repositories import leads as lead_repository
+
+    def fail_to_create(*args, **kwargs):
+        raise RuntimeError("db failed")
+
+    monkeypatch.setattr(lead_repository, "create", fail_to_create)
+
+    response = create_lead(client)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Could not save lead"
+    assert list(config.UPLOAD_DIR.iterdir()) == []
+    email_service.send_prospect_confirmation.assert_not_called()
+    email_service.send_attorney_notification.assert_not_called()
+
+
+def test_email_failure_keeps_single_pending_lead_and_attempts_second_email(
+    client, email_service, caplog
+):
+    api_key = "re_must_not_appear_in_logs"
+    email_service.send_prospect_confirmation.side_effect = RuntimeError(api_key)
+
+    with caplog.at_level("ERROR"):
+        response = create_lead(client, email="delivery-failure@example.com")
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created["status"] == "PENDING"
+    email_service.send_prospect_confirmation.assert_called_once()
+    email_service.send_attorney_notification.assert_called_once()
+    assert api_key not in caplog.text
+
+    duplicate = create_lead(client, email="delivery-failure@example.com")
+    assert duplicate.status_code == 200
+    assert duplicate.json()["id"] == created["id"]
+    listing = client.get("/api/leads").json()
+    assert listing["total"] == 1
 
 
 def test_create_lead_rejects_name_too_short(client):

@@ -31,8 +31,13 @@ DNS_LOOKUP_TIMEOUT = 3
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Alma <onboarding@resend.dev>")
-ATTORNEY_EMAIL = os.getenv("ATTORNEY_EMAIL", "attorney@alma.example.com")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Lead Team <onboarding@resend.dev>")
+ATTORNEY_EMAIL = os.getenv("ATTORNEY_EMAIL", "attorney@example.com")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "resend")
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
+SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TIMEOUT_SECONDS", "10"))
 
 ATTORNEY_PASSWORD = os.getenv("ATTORNEY_PASSWORD", "Alma123!")
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-insecure-secret-change-me")

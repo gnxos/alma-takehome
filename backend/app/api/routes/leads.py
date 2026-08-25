@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import (
@@ -27,10 +28,19 @@ from app.schemas.leads import (
     LeadOut,
     LeadUpdate,
 )
-from app.services import email_notifications
-from app.services.resume_storage import ResumeStorageError, store_resume
+from app.services.email_service import (
+    EmailService,
+    get_email_service,
+    send_lead_emails_safely,
+)
+from app.services.resume_storage import (
+    ResumeStorageError,
+    delete_stored_resume,
+    store_resume,
+)
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
+logger = logging.getLogger(__name__)
 
 # Lead creation is public. Every dashboard endpoint requires this dependency.
 _require_attorney = Depends(get_current_attorney_email)
@@ -50,6 +60,7 @@ async def create_lead(
     email: str = Form(...),
     resume: UploadFile = File(...),
     db: Session = Depends(get_db),
+    email_service: EmailService = Depends(get_email_service),
 ) -> LeadCreateResult:
     form = await request.form()
     if len(form.getlist("resume")) > 1:
@@ -81,15 +92,27 @@ async def create_lead(
             detail=str(exc),
         ) from exc
 
-    lead = lead_repository.create(
-        db,
-        first_name=validated.first_name,
-        last_name=validated.last_name,
-        email=validated.email,
-        resume_filename=stored_resume.original_filename,
-        resume_path=str(stored_resume.path),
-    )
-    background_tasks.add_task(email_notifications.send_lead_notifications, lead)
+    try:
+        lead = lead_repository.create(
+            db,
+            first_name=validated.first_name,
+            last_name=validated.last_name,
+            email=validated.email,
+            resume_filename=stored_resume.original_filename,
+            resume_path=str(stored_resume.path),
+        )
+    except Exception as exc:
+        delete_stored_resume(stored_resume)
+        logger.error(
+            "Failed to store lead (%s)",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save lead",
+        ) from exc
+
+    background_tasks.add_task(send_lead_emails_safely, email_service, lead)
     return LeadCreateResult.model_validate(lead)
 
 

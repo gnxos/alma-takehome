@@ -50,6 +50,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (docs at `/docs`)
+- Mailpit: `http://localhost:8025` (local email inbox; SMTP on port `1025`)
 
 The backend's SQLite database and uploaded resumes persist in named Docker
 volumes (`backend_data`, `backend_uploads`) across restarts.
@@ -75,7 +76,8 @@ The API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 
 Config is read from environment variables (see `.env.example`): `DATABASE_URL`,
 `UPLOAD_DIR`, `CORS_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
-`ATTORNEY_PASSWORD`, `JWT_SECRET`.
+`FRONTEND_URL`, `EMAIL_BACKEND`, `SMTP_HOST`, `SMTP_PORT`,
+`ATTORNEY_PASSWORD`, and `JWT_SECRET`.
 
 Run tests:
 
@@ -118,15 +120,63 @@ container structure. Only one file may be uploaded per submission.
 
 ### Email notifications
 
-On lead creation, a confirmation email is sent to the prospect and a
-notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both via
-[Resend](https://resend.com). Sending happens in a FastAPI `BackgroundTask`
-*after* the response is returned, so a slow or failing email provider never
-delays lead creation. If `RESEND_API_KEY` is unset (the default), sending is
-skipped with a log warning instead of making a network call — safe for local
-dev and tests. `EMAIL_FROM` defaults to Resend's sandbox sender
-(`onboarding@resend.dev`), which works without a verified domain; use a
-verified `@your-domain` address in production.
+After a lead and its resume have been validated, stored, and committed, a
+FastAPI `BackgroundTask` attempts two independent messages:
+
+1. `We received your information` goes to the validated prospect address.
+2. `New lead: {first_name} {last_name}` goes to `ATTORNEY_EMAIL` and links to
+   `FRONTEND_URL/admin/leads/{lead_id}`.
+
+Neither email attaches the resume. The attorney downloads it from the
+authenticated dashboard. If either delivery fails, the other is still
+attempted and the committed lead remains `PENDING`; provider errors are logged
+without logging the API key.
+
+Set `EMAIL_BACKEND=resend` and configure `RESEND_API_KEY` plus a verified
+`EMAIL_FROM` address for production. The implementation uses Resend's Python
+SDK. If the Resend key is missing, the service logs a safe
+`DEV EMAIL - NOT DELIVERED` preview instead of crashing.
+
+#### Local email testing with Mailpit
+
+Mailpit captures both messages locally and never sends them to the internet.
+It is included in `docker-compose.yml` and uses the standard SMTP port `1025`
+and web UI port `8025`.
+
+For the full Docker stack:
+
+```bash
+docker compose up --build
+```
+
+For a backend running directly on port `8001`, start only Mailpit and place
+these non-secret values in the ignored `backend/.env` file:
+
+```bash
+docker compose up -d --wait mailpit
+
+EMAIL_BACKEND=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+EMAIL_FROM=Lead Team <leads@example.test>
+ATTORNEY_EMAIL=attorney@example.com
+FRONTEND_URL=http://localhost:3000
+RESEND_API_KEY=
+```
+
+Then run:
+
+```bash
+cd backend
+./.venv/bin/uvicorn app.main:app --reload --port 8001
+```
+
+Set `NEXT_PUBLIC_API_URL=http://localhost:8001` in `frontend/.env.local`, run
+the frontend on port `3000`, submit a valid lead, and inspect both captured
+messages at `http://localhost:8025`. The attorney link should redirect an
+unauthenticated browser to `/login`; after sign-in it opens that lead in the
+internal dashboard. Incorrect SMTP/Resend settings must not change or duplicate
+the stored lead.
 
 ### Attorney authentication
 
@@ -154,5 +204,6 @@ Runs at `http://localhost:3000`.
 
 - `/` — public lead submission form
 - `/login` — attorney sign-in
-- `/leads` — internal dashboard with status filters and an in-page lead detail modal (redirects to `/login` if not authenticated)
+- `/leads` — internal dashboard with status filters and a lead detail drawer (redirects to `/login` if not authenticated)
 - `/leads?ref=INT-YYYY-NNNN` — opens the matching lead directly in the dashboard
+- `/admin/leads/{lead_id}` — protected email entry point for a specific lead

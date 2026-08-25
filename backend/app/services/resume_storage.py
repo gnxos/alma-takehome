@@ -47,3 +47,7 @@ async def store_resume(resume: UploadFile) -> StoredResume:
         original_filename=resume.filename or stored_name,
         path=stored_path,
     )
+
+
+def delete_stored_resume(stored_resume: StoredResume) -> None:
+    stored_resume.path.unlink(missing_ok=True)

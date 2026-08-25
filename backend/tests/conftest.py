@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
 from app.services import email_validation
+from app.services.email_service import EmailService, get_email_service
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +24,12 @@ def mock_dns_lookup(monkeypatch):
 
 
 @pytest.fixture()
-def client():
+def email_service():
+    return Mock(spec=EmailService)
+
+
+@pytest.fixture()
+def client(email_service):
     tmp_dir = Path(tempfile.mkdtemp())
     db_path = tmp_dir / "test.db"
     config.UPLOAD_DIR = tmp_dir / "uploads"
@@ -42,6 +49,7 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_email_service] = lambda: email_service
 
     with TestClient(app) as test_client:
         # Most tests exercise the protected internal-dashboard endpoints, so

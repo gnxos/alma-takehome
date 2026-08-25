@@ -8,8 +8,12 @@ services:
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: http://localhost:3000
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-Alma <onboarding@resend.dev>}
-      ATTORNEY_EMAIL: ${ATTORNEY_EMAIL:-attorney@alma.example.com}
+      EMAIL_FROM: ${EMAIL_FROM:-Lead Team <leads@example.test>}
+      ATTORNEY_EMAIL: ${ATTORNEY_EMAIL:-attorney@example.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads
@@ -19,6 +23,15 @@ services:
       timeout: 3s
       retries: 3
       start_period: 3s
+    depends_on:
+      mailpit:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   frontend:
     build:

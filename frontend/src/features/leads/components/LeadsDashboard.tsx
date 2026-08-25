@@ -47,7 +47,11 @@ function LeadsDashboardContent() {
     setDeepLinkConsumed(true);
     const referenceNumber = searchParams.get("ref");
     const match = referenceNumber
-      ? leads.find((lead) => lead.reference_number === referenceNumber)
+      ? leads.find(
+          (lead) =>
+            lead.id === referenceNumber ||
+            lead.reference_number === referenceNumber
+        )
       : undefined;
     if (match) setViewLeadId(match.id);
   }
