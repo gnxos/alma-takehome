@@ -12,3 +12,10 @@ A summary of how AI coding agents were leveraged during the development of this 
 
 - **Agent-Generated**: UI component scaffolding, standard CRUD routes, initial test definitions, Dockerfile templates, code restructuring.
 - **Human-Directed / Refactored**: Security and sanitization (`html.escape`), CSPRNG ID generation, JSON template structure, schema migrations, email bugs, and documentation.
+
+- **Where Agents went Rouge : **
+    - while expanding the fields we needed multiple iterations on getting the code right
+    - Merge conflicts on code from multiple IDEs and suspended the code needed
+    
+- Notes: 
+    - combining 3 IDEs, gave me less time to review code and tolerated a lot of generic default behaviour.
