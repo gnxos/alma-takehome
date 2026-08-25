@@ -19,3 +19,108 @@ A summary of how AI coding agents were leveraged during the development of this 
     
 - Notes: 
     - combining 3 IDEs, gave me less time to review code and tolerated a lot of generic default behaviour.
+
+
+
+# Claude Code Session History
+
+A chronological record of everything asked of, and built by, this Claude Code
+session on the Alma lead-management app. `AGENT_USAGE.md` documents agent
+usage generically across tools; this file is the turn-by-turn record of what
+this specific session was asked to do and what it delivered, in order.
+
+**Asked:** Build a lead-management application — create/get/update leads, a
+public form (first name, last name, email, resume/CV), in Python/FastAPI and
+Next.js.
+
+**Asked:** Dockerize the project.
+
+**Asked, in three follow-ups:**
+1. Name fields — trim, collapse internal whitespace, 2–36 chars, unicode
+   support, reject digits/symbols.
+2. Email — trim, lowercase domain only, structural validation, 100-char cap,
+   reject embedded whitespace, verify the domain resolves via DNS/MX (with
+   an A-record fallback per RFC 5321, and explicit handling of RFC 7505
+   "null MX" domains like `example.com`).
+3. Resume/CV — PDF/DOC/DOCX only, size floor and ceiling (settled at
+   100 bytes–10MB), reject corrupted or password-protected files, reject
+   more than one file per submission.
+
+**Asked:** A dashboard listing every submitted field, with a status that
+starts `PENDING` and transitions to `REACHED_OUT` when an attorney marks it.
+
+**Asked:** Auth for the internal dashboard — one hardcoded attorney account
+(email/password/JWT secret in config), `/login`, `/logout`;
+invalid credentials → 401; logout clears the cookie and the client redirects
+to login (a later follow-up specifically fixed a hard-redirect so no stale
+dashboard state survives a session end).
+
+**Asked, across several turns:** Remove the global nav header (keep
+per-page titles); replace the eye icon with an external-link icon next to
+the lead ID instead of the name; add an "Id" column; fix a two-line status
+badge; convert lead detail from a separate route to an in-page view; add
+per-field blur validation on the intake form instead of validating only on
+submit; convert the status action from a button to a `<select>` dropdown
+(bidirectional Pending ↔ Reached out); fix a bug where the external-link
+icon opened a duplicate tab *and* a dialog; convert the lead-detail view
+from a centered modal to a right-side sliding drawer with a border.
+
+**Asked:** Use tryalma.com's sign-up and get-started pages (screenshots
+provided) as layout references, and `ui-design-spec.md` for the token
+system, to redesign the login, prospect-intake, and dashboard pages.
+
+**Asked:** Give every lead a ticket number; if a ticket already exists for
+that email, respond with the existing ticket instead of creating a
+duplicate; let leads be looked up by that reference number, not just
+internal ID — but without exposing this as a new public-facing page.
+
+**Asked, across the session:** Add a remote, push to `dev` with commits
+prefixed `CLAUDE-`, raise PRs to `dev`, fetch and merge `dev`'s latest
+changes, fix merge conflicts.
+
+**Asked:** On submission, email both the prospect and an attorney inside
+the company ("Alma"), using Resend, via `BackgroundTasks` so sending never
+delays the response.
+
+**Asked:** Use Mailpit to catch email locally; separately, for local
+testing use Mailpit + SQLite, and for production use Resend + MySQL.
+
+**Asked:** Track the status of the notification emails themselves in the
+database.
+
+**Asked:** Fetch all the history used for this project and create a file.
+
+# Anti Gravity Session History
+
+**Asked:** In the lead detail view, move the "Prospect email:" and "Attorney email:" status fields into/under an on-demand notification section that is hidden by default and shown only when requested by the user.
+
+**Asked:** Support multiple attorney accounts for authentication; fan out email notifications to all configured attorneys when a lead is submitted; track audit information (who resolved a lead and when) when status transitions occur.
+
+**Asked:** Include the ticket reference ID in prospect confirmation emails so prospects have their tracking reference; also simplify the verbose Python email template files (`_shared.py`, `prospect_email.py`, `attorney_email.py`) into declarative JSON template files under `templates/`.
+
+# Codex Session History
+
+Here are your prompts in this project, in chronological order:
+1. “restructure the project into folders and divide the code into clean structure based on the concerns and standard best practices”
+2. “i would like to take this work independently in local without disturbing the local changes so that we can push that separately. make sure you revert the change you have made if any and reset back to the original state with all the changes that were there before in local”
+3. “fetch the latest dev merge it and push the changes”
+4. “In the lead dashboard on selecting the email user should be able to see all the tickets based on the email id"
+5. “no what i meant is it should behave the same way as External link—open the side bar, but it should show all the tickets related to that email instead of only the one with that Id”
+10. “push the changes to dev”
+11. Here are the detailed email-feature requirements, review the implementations and make the required missing changes:
+    - Prospect and attorney emails after successful lead creation
+    - Resend and FastAPI BackgroundTasks
+    - No queues, Celery, Redis, or outbox table
+    - Exact email content requirements
+    - An injectable EmailService
+    - Independent error handling for both emails
+    - Safe development fallback
+    - Database/upload failure handling
+    - Automated content, security, provider-failure, and integration tests
+    - Local end-to-end testing through Mailpit
+    - A protected attorney lead-details link
+    - No resume attachments
+12. “separate the email templates from code and keep them separately in template folder”
+
+
+
