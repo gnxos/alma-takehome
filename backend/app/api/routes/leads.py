@@ -66,7 +66,7 @@ async def create_lead(
             detail=exc.errors(include_context=False, include_url=False),
         ) from exc
 
-    existing = lead_repository.get_by_email(db, validated.email)
+    existing = lead_repository.get_pending_by_email(db, validated.email)
     if existing is not None:
         response.status_code = status.HTTP_200_OK
         result = LeadCreateResult.model_validate(existing)

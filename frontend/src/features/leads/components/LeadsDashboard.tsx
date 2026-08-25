@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { ChevronDownIcon } from "@/components/ui/icons";
 import { buttonClasses } from "@/components/ui/Button";
 import { logout, redirectToLogin } from "@/features/auth/api";
 import { useLeads } from "../hooks/useLeads";
@@ -37,7 +38,7 @@ function LeadsDashboardContent() {
     error,
     updatingId,
     applyUpdate,
-    markReachedOut,
+    changeStatus,
   } = useLeads();
 
   if (!deepLinkConsumed && leads.length > 0) {
@@ -103,20 +104,34 @@ function LeadsDashboardContent() {
           </div>
         )}
 
-        <div className="mt-6 flex gap-2">
-          {STATUS_FILTERS.map((item) => (
-            <button
-              key={item.value}
-              onClick={() => setFilter(item.value)}
-              className={`rounded-pill px-3 py-1 text-body-sm font-medium ${
-                filter === item.value
-                  ? "bg-navy-600 text-paper-0"
-                  : "bg-paper-100 text-ink-700 hover:bg-paper-100/70"
-              }`}
+        <div className="mt-6 flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="status-filter"
+              className="text-label-sm font-medium text-ink-700"
             >
-              {item.label}
-            </button>
-          ))}
+              Status:
+            </label>
+            <div className="relative">
+              <select
+                id="status-filter"
+                value={filter}
+                onChange={(event) =>
+                  setFilter(event.target.value as LeadFilter)
+                }
+                className="h-9 cursor-pointer appearance-none rounded-input border border-ink-200 bg-paper-0 py-1.5 pl-3 pr-8 text-body-sm font-medium text-ink-900 shadow-sm transition hover:border-ink-400 focus:border-navy-600 focus:outline-none focus:ring-2 focus:ring-navy-600/20"
+              >
+                {STATUS_FILTERS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-ink-400">
+                <ChevronDownIcon className="size-4" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -147,7 +162,7 @@ function LeadsDashboardContent() {
             leads={visibleLeads}
             updatingId={updatingId}
             onOpen={setViewLeadId}
-            onMarkReachedOut={markReachedOut}
+            onChangeStatus={changeStatus}
           />
         )}
       </div>

@@ -35,6 +35,43 @@ def test_create_lead_returns_existing_ticket_for_duplicate_email(client):
     assert second["first_name"] == "Ada"
 
 
+def test_create_lead_allows_new_submission_when_previous_status_is_reached_out(client):
+    # 1. First submission (PENDING)
+    first_response = create_lead(client, email="candidate@example.com")
+    assert first_response.status_code == 201
+    first = first_response.json()
+    assert first["status"] == "PENDING"
+    assert first["already_exists"] is False
+
+    # 2. Re-submitting while PENDING should return existing ticket
+    dupe_response = create_lead(client, email="candidate@example.com")
+    assert dupe_response.status_code == 200
+    assert dupe_response.json()["id"] == first["id"]
+    assert dupe_response.json()["already_exists"] is True
+
+    # 3. Attorney reaches out (status updated to REACHED_OUT)
+    update_response = client.patch(
+        f"/api/leads/{first['id']}", json={"status": "REACHED_OUT"}
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "REACHED_OUT"
+
+    # 4. Now the user should be able to submit a new ticket again
+    new_response = create_lead(
+        client,
+        email="candidate@example.com",
+        first_name="Ada",
+        last_name="Byron",
+    )
+    assert new_response.status_code == 201
+    new_ticket = new_response.json()
+    assert new_ticket["already_exists"] is False
+    assert new_ticket["id"] != first["id"]
+    assert new_ticket["reference_number"] != first["reference_number"]
+    assert new_ticket["status"] == "PENDING"
+    assert new_ticket["last_name"] == "Byron"
+
+
 def test_get_lead_by_reference_number(client):
     created = create_lead(client).json()
     response = client.get(f"/api/leads/{created['reference_number']}")

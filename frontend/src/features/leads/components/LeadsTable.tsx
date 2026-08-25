@@ -1,21 +1,20 @@
-import { Button } from "@/components/ui/Button";
 import { DownloadIcon, ExternalLinkIcon } from "@/components/ui/icons";
 import { resumeUrl } from "../api";
-import type { Lead } from "../types";
-import { StatusBadge } from "./StatusBadge";
+import type { Lead, LeadStatus } from "../types";
+import { StatusBadge, StatusSelect } from "./StatusBadge";
 
 interface LeadsTableProps {
   leads: Lead[];
   updatingId: string | null;
   onOpen: (leadId: string) => void;
-  onMarkReachedOut: (lead: Lead) => void;
+  onChangeStatus: (lead: Lead, status: LeadStatus) => void;
 }
 
 export function LeadsTable({
   leads,
   updatingId,
   onOpen,
-  onMarkReachedOut,
+  onChangeStatus,
 }: LeadsTableProps) {
   return (
     <>
@@ -55,7 +54,6 @@ export function LeadsTable({
               <th className="h-11 px-4 text-label-sm text-ink-700">
                 Submitted
               </th>
-              <th className="h-11 px-4 text-label-sm text-ink-700">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -89,30 +87,15 @@ export function LeadsTable({
                     <DownloadIcon className="size-3.5 text-ink-400" />
                   </a>
                 </td>
-                <td className="whitespace-nowrap px-4">
-                  <StatusBadge status={lead.status} />
+                <td className="whitespace-nowrap px-4" onClick={(event) => event.stopPropagation()}>
+                  <StatusSelect
+                    status={lead.status}
+                    disabled={updatingId === lead.id}
+                    onChange={(status) => onChangeStatus(lead, status)}
+                  />
                 </td>
                 <td className="whitespace-nowrap px-4 text-ink-400">
                   {new Date(lead.created_at).toLocaleDateString()}
-                </td>
-                <td
-                  className="whitespace-nowrap px-4"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {lead.status === "PENDING" ? (
-                    <Button
-                      variant="secondary"
-                      className="!h-8 !px-3 !text-body-sm"
-                      disabled={updatingId === lead.id}
-                      onClick={() => onMarkReachedOut(lead)}
-                    >
-                      {updatingId === lead.id
-                        ? "Updating..."
-                        : "Mark Reached Out"}
-                    </Button>
-                  ) : (
-                    <span className="text-body-sm text-ink-400">&mdash;</span>
-                  )}
                 </td>
               </tr>
             ))}
