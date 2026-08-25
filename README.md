@@ -7,6 +7,37 @@ leads.
 - `backend/` — FastAPI + SQLAlchemy (SQLite) API
 - `frontend/` — Next.js (App Router, TypeScript, Tailwind) web app
 
+## Project structure
+
+The application is organized by responsibility so framework entry points stay
+small and domain code remains independently testable.
+
+```text
+backend/app/
+├── api/             # FastAPI router composition and HTTP route handlers
+├── core/            # Environment configuration and authentication primitives
+├── database/        # SQLAlchemy base, engine, sessions, and dependencies
+├── models/          # Database entities and enums
+├── repositories/    # Persistence queries and mutations
+├── schemas/         # Pydantic request and response contracts
+├── services/        # Email, upload storage, and content validation
+└── main.py          # Application factory and middleware setup
+
+backend/tests/
+├── api/             # Auth and lead endpoint integration tests
+└── services/        # Email and resume validation unit tests
+
+frontend/src/
+├── app/             # Next.js route entry points and root layout only
+├── components/      # Shared layout and UI primitives
+├── features/        # Auth, intake, and lead-management feature modules
+└── lib/             # Feature-agnostic infrastructure such as the API client
+```
+
+Backend dependencies flow from routes to repositories/services, then to models
+and database infrastructure. Frontend routes compose feature components; each
+feature owns its API adapter, types, hooks, validation, and UI where applicable.
+
 ## Docker
 
 The fastest way to run everything:

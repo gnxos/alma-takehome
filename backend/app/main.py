@@ -1,26 +1,32 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import CORS_ORIGINS
-from app.database import Base, engine
-from app.routers import auth, leads
-
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Lead Management API", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(auth.router)
-app.include_router(leads.router)
+from app.api.router import api_router
+from app.core.config import CORS_ORIGINS
+from app.database.base import Base
+from app.database.session import engine
+# Import models before create_all so SQLAlchemy has registered their tables.
+from app.models import Lead  # noqa: F401
 
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+def create_app() -> FastAPI:
+    Base.metadata.create_all(bind=engine)
+    application = FastAPI(title="Lead Management API", version="1.0.0")
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    application.include_router(api_router)
+
+    @application.get("/api/health", tags=["health"])
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return application
+
+
+app = create_app()

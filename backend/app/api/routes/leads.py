@@ -1,0 +1,131 @@
+from pathlib import Path
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse
+from pydantic import ValidationError
+from sqlalchemy.orm import Session
+
+from app.core.security import get_current_attorney_email
+from app.database.session import get_db
+from app.models.lead import LeadStatus
+from app.repositories import leads as lead_repository
+from app.schemas.leads import LeadBase, LeadList, LeadOut, LeadUpdate
+from app.services import email_notifications
+from app.services.resume_storage import ResumeStorageError, store_resume
+
+router = APIRouter(prefix="/api/leads", tags=["leads"])
+
+# Lead creation is public. Every dashboard endpoint requires this dependency.
+_require_attorney = Depends(get_current_attorney_email)
+
+
+@router.post("", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
+async def create_lead(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    email: str = Form(...),
+    resume: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    form = await request.form()
+    if len(form.getlist("resume")) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only one resume file may be uploaded.",
+        )
+
+    try:
+        validated = LeadBase(first_name=first_name, last_name=last_name, email=email)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=exc.errors(include_context=False, include_url=False),
+        ) from exc
+
+    try:
+        stored_resume = await store_resume(resume)
+    except ResumeStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    lead = lead_repository.create(
+        db,
+        first_name=validated.first_name,
+        last_name=validated.last_name,
+        email=validated.email,
+        resume_filename=stored_resume.original_filename,
+        resume_path=str(stored_resume.path),
+    )
+    background_tasks.add_task(email_notifications.send_lead_notifications, lead)
+    return lead
+
+
+@router.get("", response_model=LeadList)
+def list_leads(
+    status_filter: LeadStatus | None = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    _attorney_email: str = _require_attorney,
+) -> LeadList:
+    total, items = lead_repository.list_all(
+        db,
+        status=status_filter,
+        skip=skip,
+        limit=limit,
+    )
+    return LeadList(total=total, items=items)
+
+
+@router.get("/{lead_id}", response_model=LeadOut)
+def get_lead(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _attorney_email: str = _require_attorney,
+):
+    return _get_lead_or_404(db, lead_id)
+
+
+@router.patch("/{lead_id}", response_model=LeadOut)
+def update_lead(
+    lead_id: str,
+    changes: LeadUpdate,
+    db: Session = Depends(get_db),
+    _attorney_email: str = _require_attorney,
+):
+    lead = _get_lead_or_404(db, lead_id)
+    return lead_repository.update(db, lead, changes)
+
+
+@router.get("/{lead_id}/resume")
+def download_resume(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    _attorney_email: str = _require_attorney,
+) -> FileResponse:
+    lead = _get_lead_or_404(db, lead_id)
+    path = Path(lead.resume_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Resume file not found")
+    return FileResponse(path, filename=lead.resume_filename)
+
+
+def _get_lead_or_404(db: Session, lead_id: str):
+    lead = lead_repository.get(db, lead_id)
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return lead

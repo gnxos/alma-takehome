@@ -7,9 +7,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import config, email_validation
-from app.database import Base, get_db
+from app.core import config
+from app.database.base import Base
+from app.database.session import get_db
 from app.main import app
+from app.services import email_validation
 
 
 @pytest.fixture(autouse=True)
