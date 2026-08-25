@@ -8,7 +8,8 @@ leads.
 - `frontend/` — Next.js (App Router, TypeScript, Tailwind) web app
 
 > 📖 **Setup Guide**: See [LOCAL_RUN_GUIDE.md](./LOCAL_RUN_GUIDE.md)  
-> 📐 **Design Decisions & Architecture**: See [DESIGN.md](./DESIGN.md)
+> 📐 **Design Decisions & Architecture**: See [DESIGN.md](./DESIGN.md)  
+> 🤖 **Coding Agent Usage & Attribution**: See [AGENT_USAGE.md](./AGENT_USAGE.md)
 
 ## Project structure
 
