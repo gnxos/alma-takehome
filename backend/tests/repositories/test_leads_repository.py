@@ -64,6 +64,20 @@ def test_get_lead_by_email_returns_most_recent(db_session):
     assert found.id == second.id
 
 
+def test_get_pending_by_email(db_session):
+    from app.models.lead import LeadStatus
+    from app.schemas.leads import LeadUpdate
+
+    first = _create(db_session, email="prospect@example.com")
+    assert lead_repository.get_pending_by_email(db_session, "prospect@example.com").id == first.id
+
+    lead_repository.update(db_session, first, LeadUpdate(status=LeadStatus.REACHED_OUT))
+    assert lead_repository.get_pending_by_email(db_session, "prospect@example.com") is None
+
+    second = _create(db_session, email="prospect@example.com")
+    assert lead_repository.get_pending_by_email(db_session, "prospect@example.com").id == second.id
+
+
 def test_get_lead_by_id_or_reference(db_session):
     lead = _create(db_session)
     assert lead_repository.get_by_id_or_reference(db_session, lead.id).id == lead.id

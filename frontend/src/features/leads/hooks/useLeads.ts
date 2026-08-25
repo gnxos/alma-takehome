@@ -8,7 +8,7 @@ import {
 } from "@/features/auth/api";
 import { UnauthorizedError } from "@/lib/api/client";
 import { listLeads, updateLead } from "../api";
-import type { Lead } from "../types";
+import type { Lead, LeadStatus } from "../types";
 
 export function useLeads() {
   const [attorneyEmail, setAttorneyEmail] = useState<string | null>(null);
@@ -56,11 +56,12 @@ export function useLeads() {
     );
   }
 
-  async function markReachedOut(lead: Lead) {
+  async function changeStatus(lead: Lead, newStatus: LeadStatus) {
+    if (newStatus === lead.status) return;
     setUpdatingId(lead.id);
     setError(null);
     try {
-      applyUpdate(await updateLead(lead.id, { status: "REACHED_OUT" }));
+      applyUpdate(await updateLead(lead.id, { status: newStatus }));
     } catch (requestError) {
       if (requestError instanceof UnauthorizedError) {
         redirectToLogin();
@@ -83,6 +84,6 @@ export function useLeads() {
     error,
     updatingId,
     applyUpdate,
-    markReachedOut,
+    changeStatus,
   };
 }
