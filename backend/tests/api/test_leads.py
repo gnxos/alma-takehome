@@ -4,7 +4,7 @@ import re
 from app.core import config
 from tests.factories import GARBAGE_BYTES, create_lead, make_docx_bytes, make_pdf_bytes
 
-REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-\d{4}$")
+REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-[0-9A-HJ-NP-Z]{6}$")
 
 
 def test_create_lead_success(client):
@@ -99,18 +99,52 @@ def test_download_resume_by_reference_number(client):
 def test_create_lead_triggers_email_notifications(client, monkeypatch):
     from app.services import email_notifications
 
-    notified = []
+    prospect_calls = []
+    attorney_calls = []
     monkeypatch.setattr(
         email_notifications,
-        "send_lead_notifications",
-        notified.append,
+        "send_prospect_email",
+        lambda lead: prospect_calls.append(lead) or True,
+    )
+    monkeypatch.setattr(
+        email_notifications,
+        "send_attorney_email",
+        lambda lead: attorney_calls.append(lead) or True,
     )
 
-    response = create_lead(client)
+    created = create_lead(client).json()
 
-    assert response.status_code == 201
-    assert len(notified) == 1
-    assert notified[0].email == "ada@example.com"
+    assert len(prospect_calls) == 1
+    assert prospect_calls[0].email == "ada@example.com"
+    assert len(attorney_calls) == 1
+
+    # The background email task runs synchronously within the test client's
+    # request/response cycle, so the recorded status is already updated by
+    # the time we re-fetch the lead.
+    fetched = client.get(f"/api/leads/{created['id']}").json()
+    assert fetched["prospect_email_status"] == "SENT"
+    assert fetched["attorney_email_status"] == "SENT"
+
+
+def test_create_lead_records_email_send_failure(client, monkeypatch):
+    from app.services import email_notifications
+
+    monkeypatch.setattr(email_notifications, "send_prospect_email", lambda lead: False)
+    monkeypatch.setattr(email_notifications, "send_attorney_email", lambda lead: True)
+
+    created = create_lead(client).json()
+
+    fetched = client.get(f"/api/leads/{created['id']}").json()
+    assert fetched["prospect_email_status"] == "FAILED"
+    assert fetched["attorney_email_status"] == "SENT"
+
+
+def test_create_lead_email_status_starts_pending_before_background_task(client):
+    created = create_lead(client).json()
+    # The initial creation response is serialized before the background
+    # email task runs, so it must reflect the not-yet-attempted state.
+    assert created["prospect_email_status"] == "PENDING"
+    assert created["attorney_email_status"] == "PENDING"
 
 
 def test_create_lead_accepts_docx(client):

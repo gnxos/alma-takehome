@@ -7,6 +7,7 @@ from app.services import email_notifications
 def _lead(**overrides) -> Lead:
     defaults = dict(
         id="lead-1",
+        reference_number="INT-2026-000001",
         first_name="Ada",
         last_name="Lovelace",
         email="ada@example.com",
@@ -23,7 +24,6 @@ def _lead(**overrides) -> Lead:
 def test_send_lead_notifications_emails_prospect_and_attorney(monkeypatch):
     sent = []
     monkeypatch.setattr(email_notifications, "_send", sent.append)
-    monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "test-key")
 
     email_notifications.send_lead_notifications(_lead())
 
@@ -37,6 +37,14 @@ def test_prospect_email_greets_lead_by_first_name():
     payload = email_notifications._prospect_email_payload(_lead(first_name="Grace"))
     assert "Grace" in payload["subject"]
     assert "Grace" in payload["html"]
+
+
+def test_prospect_email_includes_reference_number():
+    payload = email_notifications._prospect_email_payload(
+        _lead(reference_number="INT-2026-ABC123")
+    )
+    assert "INT-2026-ABC123" in payload["html"]
+    assert "Your Ticket Reference" in payload["html"]
 
 
 def test_attorney_email_mentions_alma_and_lead_details():
@@ -55,25 +63,6 @@ def test_email_payloads_escape_html_in_names():
     assert "&lt;script&gt;" in payload["html"]
 
 
-def test_send_invokes_resend_when_api_key_present(monkeypatch):
-    called_with = []
-    monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "test-api-key")
-    monkeypatch.setattr(
-        email_notifications.resend.Emails, "send", lambda payload: called_with.append(payload)
-    )
-
-    test_payload = {
-        "from": email_notifications.EMAIL_FROM,
-        "to": ["ada@example.com"],
-        "subject": "Test",
-    }
-    email_notifications._send(test_payload)
-
-    assert len(called_with) == 1
-    assert called_with[0] == test_payload
-    assert email_notifications.resend.api_key == "test-api-key"
-
-
 def test_email_payloads_include_configured_sender():
     lead = _lead()
     prospect = email_notifications._prospect_email_payload(lead)
@@ -82,20 +71,48 @@ def test_email_payloads_include_configured_sender():
     assert attorney["from"] == email_notifications.EMAIL_FROM
 
 
-def test_send_skips_without_api_key(monkeypatch, caplog):
-    monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "")
-    with caplog.at_level("WARNING"):
-        email_notifications._send({"subject": "test"})
-    assert "skipping email" in caplog.text.lower()
+def test_build_message_sets_headers_and_html_body():
+    payload = {
+        "from": "Alma <onboarding@alma.example.com>",
+        "to": ["ada@example.com", "attorney@alma.example.com"],
+        "subject": "Test subject",
+        "html": "<p>Hello</p>",
+    }
+    message = email_notifications._build_message(payload)
+
+    assert message["From"] == payload["from"]
+    assert message["To"] == "ada@example.com, attorney@alma.example.com"
+    assert message["Subject"] == "Test subject"
+    assert "<p>Hello</p>" in message.get_payload()[0].get_payload()
 
 
-def test_send_swallows_resend_errors(monkeypatch, caplog):
-    monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "test-key")
+def test_send_delivers_built_message_to_recipients(monkeypatch):
+    delivered = []
+    monkeypatch.setattr(
+        email_notifications,
+        "_deliver",
+        lambda message, recipients: delivered.append((message, recipients)),
+    )
 
+    payload = {
+        "from": email_notifications.EMAIL_FROM,
+        "to": ["ada@example.com"],
+        "subject": "Test",
+        "html": "<p>hi</p>",
+    }
+    email_notifications._send(payload)
+
+    assert len(delivered) == 1
+    message, recipients = delivered[0]
+    assert recipients == ["ada@example.com"]
+    assert message["Subject"] == "Test"
+
+
+def test_send_swallows_smtp_errors(monkeypatch, caplog):
     def _raise(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(email_notifications.resend.Emails, "send", _raise)
+    monkeypatch.setattr(email_notifications, "_deliver", _raise)
     with caplog.at_level("ERROR"):
-        email_notifications._send({"subject": "test"})  # must not raise
+        email_notifications._send({"subject": "test", "to": ["a@example.com"], "html": "x"})
     assert "failed to send email" in caplog.text.lower()

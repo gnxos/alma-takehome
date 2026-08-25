@@ -1,13 +1,13 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+pymysql
 pydantic[email]
 python-multipart
 dnspython
 pypdf
 python-docx
 msoffcrypto-tool
-resend
 pyjwt
 python-dotenv
 pytest

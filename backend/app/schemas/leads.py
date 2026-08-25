@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator
 
 from app.core.config import NAME_MAX_LENGTH, NAME_MIN_LENGTH
-from app.models.lead import LeadStatus
+from app.models.lead import EmailDeliveryStatus, LeadStatus
 from app.services.email_validation import normalize_email
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -49,6 +49,8 @@ class LeadFields(BaseModel):
     first_name: str
     last_name: str
     email: str
+    phone: Optional[str] = None
+    message: Optional[str] = None
 
 
 class LeadBase(_NameValidationMixin, _EmailValidationMixin, LeadFields):
@@ -60,6 +62,8 @@ class LeadUpdate(_NameValidationMixin, _EmailValidationMixin, BaseModel):
     last_name: Optional[str] = None
     email: Optional[str] = None
     status: Optional[LeadStatus] = None
+    phone: Optional[str] = None
+    message: Optional[str] = None
 
 
 class LeadOut(LeadFields):
@@ -69,6 +73,8 @@ class LeadOut(LeadFields):
     reference_number: str
     status: LeadStatus
     resume_filename: str
+    prospect_email_status: EmailDeliveryStatus
+    attorney_email_status: EmailDeliveryStatus
     created_at: datetime
     updated_at: datetime
 

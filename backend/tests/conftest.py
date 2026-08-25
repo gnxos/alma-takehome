@@ -11,7 +11,7 @@ from app.core import config
 from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
-from app.services import email_validation
+from app.services import email_notifications, email_validation
 
 
 @pytest.fixture(autouse=True)
@@ -19,6 +19,14 @@ def mock_dns_lookup(monkeypatch):
     """Default all test domains to "has mail exchanger" so tests don't hit
     real DNS. Individual tests can monkeypatch this again to test rejection."""
     monkeypatch.setattr(email_validation, "domain_has_mail_exchanger", lambda domain: True)
+
+
+@pytest.fixture(autouse=True)
+def mock_email_delivery(monkeypatch):
+    """Prevent tests from opening a real SMTP connection (to Mailpit or
+    otherwise). Individual tests can monkeypatch email_notifications._deliver
+    or ._send again to assert on outgoing mail."""
+    monkeypatch.setattr(email_notifications, "_deliver", lambda message, recipients: None)
 
 
 @pytest.fixture()

@@ -14,11 +14,12 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.security import get_current_attorney_email
 from app.database.session import get_db
-from app.models.lead import Lead, LeadStatus
+from app.models.lead import EmailDeliveryStatus, Lead, LeadStatus
 from app.repositories import leads as lead_repository
 from app.schemas.leads import (
     LeadBase,
@@ -49,6 +50,8 @@ async def create_lead(
     last_name: str = Form(...),
     email: str = Form(...),
     resume: UploadFile = File(...),
+    phone: str | None = Form(None),
+    message: str | None = Form(None),
     db: Session = Depends(get_db),
 ) -> LeadCreateResult:
     form = await request.form()
@@ -59,7 +62,13 @@ async def create_lead(
         )
 
     try:
-        validated = LeadBase(first_name=first_name, last_name=last_name, email=email)
+        validated = LeadBase(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=phone,
+            message=message,
+        )
     except ValidationError as exc:
         raise HTTPException(
             status_code=422,
@@ -88,8 +97,12 @@ async def create_lead(
         email=validated.email,
         resume_filename=stored_resume.original_filename,
         resume_path=str(stored_resume.path),
+        phone=validated.phone,
+        message=validated.message,
     )
-    background_tasks.add_task(email_notifications.send_lead_notifications, lead)
+    background_tasks.add_task(
+        _send_lead_notifications_and_record_status, db.get_bind(), lead.id
+    )
     return LeadCreateResult.model_validate(lead)
 
 
@@ -158,3 +171,29 @@ def _get_lead_or_404(db: Session, lead_id: str) -> Lead:
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
+
+
+def _send_lead_notifications_and_record_status(engine: Engine, lead_id: str) -> None:
+    """Runs as a background task, after the response has already been sent —
+    the request's `db` session is closed by then, so this opens its own,
+    bound to the same engine the request used (not a hardcoded global one,
+    so this stays correct under the test suite's overridden test database)."""
+    db = sessionmaker(bind=engine)()
+    try:
+        lead = lead_repository.get(db, lead_id)
+        if lead is None:
+            return
+        prospect_sent = email_notifications.send_prospect_email(lead)
+        attorney_sent = email_notifications.send_attorney_email(lead)
+        lead_repository.update_email_statuses(
+            db,
+            lead,
+            prospect_status=(
+                EmailDeliveryStatus.SENT if prospect_sent else EmailDeliveryStatus.FAILED
+            ),
+            attorney_status=(
+                EmailDeliveryStatus.SENT if attorney_sent else EmailDeliveryStatus.FAILED
+            ),
+        )
+    finally:
+        db.close()

@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.core import config
-from app.services.resume_validation import ResumeValidationError, validate_resume_contents
+from app.services.resume.resume_validation import ResumeValidationError, validate_resume_contents
 
 
 class ResumeStorageError(ValueError):

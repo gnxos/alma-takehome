@@ -50,6 +50,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (docs at `/docs`)
+- Mailpit (caught email): `http://localhost:8025`
 
 The backend's SQLite database and uploaded resumes persist in named Docker
 volumes (`backend_data`, `backend_uploads`) across restarts.
@@ -74,7 +75,8 @@ python3 -m venv venv
 The API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 
 Config is read from environment variables (see `.env.example`): `DATABASE_URL`,
-`UPLOAD_DIR`, `CORS_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
+`UPLOAD_DIR`, `CORS_ORIGINS`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`,
+`SMTP_PASSWORD`, `SMTP_USE_TLS`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
 `ATTORNEY_PASSWORD`, `JWT_SECRET`.
 
 Run tests:
@@ -99,8 +101,10 @@ Run tests:
 A lead requires `first_name`, `last_name`, `email`, and a single `resume` file
 (`.pdf`, `.doc`, or `.docx`, 100 bytes–10MB). New leads start with status
 `PENDING`, receive an `INT-YYYY-NNNN` reference number, and can be transitioned
-to `REACHED_OUT`. A repeat submission for the same normalized email returns the
-existing lead instead of creating a duplicate ticket.
+to `REACHED_OUT`. A repeat submission for the same normalized email while a
+ticket is still `PENDING` returns that existing ticket instead of creating a
+duplicate; once a lead has been marked `REACHED_OUT`, a new submission opens
+a fresh ticket.
 
 **Name fields** are trimmed, collapse repeated inner whitespace to a single
 space, must be 2–36 characters, support unicode letters, and reject digits
@@ -119,14 +123,22 @@ container structure. Only one file may be uploaded per submission.
 ### Email notifications
 
 On lead creation, a confirmation email is sent to the prospect and a
-notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both via
-[Resend](https://resend.com). Sending happens in a FastAPI `BackgroundTask`
-*after* the response is returned, so a slow or failing email provider never
-delays lead creation. If `RESEND_API_KEY` is unset (the default), sending is
-skipped with a log warning instead of making a network call — safe for local
-dev and tests. `EMAIL_FROM` defaults to Resend's sandbox sender
-(`onboarding@resend.dev`), which works without a verified domain; use a
-verified `@your-domain` address in production.
+notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both over
+SMTP. Sending happens in a FastAPI `BackgroundTask` *after* the response is
+returned, so a slow or unreachable mail server never delays lead creation —
+a failed send is logged and swallowed, never raised.
+
+Locally (and via `docker compose up`), emails are sent to
+[Mailpit](https://mailpit.axllent.org), a local SMTP catch-all with a web UI
+at `http://localhost:8025` — every email the app sends shows up there
+instead of going anywhere real, so you can open the dashboard and see the
+prospect confirmation and attorney notification for each submission. Outside
+Docker, run `docker run -d -p 8025:8025 -p 1025:1025 axllent/mailpit` (or
+the standalone binary) alongside the backend.
+
+For production, point `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
+`SMTP_PASSWORD`/`SMTP_USE_TLS` at a real relay — e.g. Resend's SMTP relay
+(`smtp.resend.com:587`, `SMTP_USE_TLS=true`, an API key as the password).
 
 ### Attorney authentication
 

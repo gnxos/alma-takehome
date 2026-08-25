@@ -14,6 +14,8 @@ export function createLead(input: CreateLeadInput): Promise<LeadCreateResult> {
   formData.append("last_name", input.last_name);
   formData.append("email", input.email);
   formData.append("resume", input.resume);
+  if (input.phone) formData.append("phone", input.phone);
+  if (input.message) formData.append("message", input.message);
 
   return apiRequest<LeadCreateResult>("/api/leads", {
     method: "POST",

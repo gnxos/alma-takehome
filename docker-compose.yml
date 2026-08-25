@@ -1,4 +1,16 @@
 services:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025" # web UI — view caught mail at http://localhost:8025
+      - "1025:1025" # SMTP
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
   backend:
     build: ./backend
     ports:
@@ -7,12 +19,16 @@ services:
       DATABASE_URL: sqlite:////app/data/leads.db
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: http://localhost:3000
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-Alma <onboarding@resend.dev>}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      EMAIL_FROM: ${EMAIL_FROM:-Alma <onboarding@alma.example.com>}
       ATTORNEY_EMAIL: ${ATTORNEY_EMAIL:-attorney@alma.example.com}
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads
+    depends_on:
+      mailpit:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 5s

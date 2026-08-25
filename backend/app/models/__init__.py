@@ -1,3 +1,3 @@
-from app.models.lead import Lead, LeadStatus
+from app.models.lead import EmailDeliveryStatus, Lead, LeadStatus
 
-__all__ = ["Lead", "LeadStatus"]
+__all__ = ["EmailDeliveryStatus", "Lead", "LeadStatus"]

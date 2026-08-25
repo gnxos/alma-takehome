@@ -1,5 +1,6 @@
 export type LeadStatus = "PENDING" | "REACHED_OUT";
 export type LeadFilter = LeadStatus | "ALL";
+export type EmailDeliveryStatus = "PENDING" | "SENT" | "FAILED";
 
 export interface Lead {
   id: string;
@@ -9,6 +10,10 @@ export interface Lead {
   email: string;
   status: LeadStatus;
   resume_filename: string;
+  phone?: string | null;
+  message?: string | null;
+  prospect_email_status: EmailDeliveryStatus;
+  attorney_email_status: EmailDeliveryStatus;
   created_at: string;
   updated_at: string;
 }
@@ -27,8 +32,13 @@ export interface CreateLeadInput {
   last_name: string;
   email: string;
   resume: File;
+  phone?: string;
+  message?: string;
 }
 
 export type LeadUpdate = Partial<
-  Pick<Lead, "first_name" | "last_name" | "email" | "status">
+  Pick<
+    Lead,
+    "first_name" | "last_name" | "email" | "status" | "phone" | "message"
+  >
 >;

@@ -7,7 +7,7 @@ import { redirectToLogin } from "@/features/auth/api";
 import { UnauthorizedError } from "@/lib/api/client";
 import { getLead, resumeUrl, updateLead } from "../api";
 import type { Lead, LeadStatus } from "../types";
-import { StatusSelect } from "./StatusBadge";
+import { EmailStatusBadge, StatusSelect } from "./StatusBadge";
 
 interface LeadModalProps {
   leadId: string;
@@ -140,6 +140,13 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
                 {lead.email}
               </dd>
 
+              {lead.phone && (
+                <>
+                  <dt className="text-label-sm text-ink-400">Phone</dt>
+                  <dd className="text-ink-900">{lead.phone}</dd>
+                </>
+              )}
+
               <dt className="text-label-sm text-ink-400">Resume / CV</dt>
               <dd>
                 <a
@@ -154,6 +161,15 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
                 </a>
               </dd>
 
+              {lead.message && (
+                <>
+                  <dt className="text-label-sm text-ink-400">Message</dt>
+                  <dd className="text-ink-900 whitespace-pre-wrap text-sm rounded-lg bg-paper-50 p-2.5 border border-ink-200">
+                    {lead.message}
+                  </dd>
+                </>
+              )}
+
               <dt className="text-label-sm text-ink-400">Submitted</dt>
               <dd className="text-ink-900">
                 {new Date(lead.created_at).toLocaleString()}
@@ -164,6 +180,11 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
                 {new Date(lead.updated_at).toLocaleString()}
               </dd>
             </dl>
+
+            <div className="mt-5 flex flex-col gap-2 border-t border-ink-200 pt-4">
+              <EmailStatusBadge label="Prospect email" status={lead.prospect_email_status} />
+              <EmailStatusBadge label="Attorney email" status={lead.attorney_email_status} />
+            </div>
 
             {saving && <p className="mt-4 text-body-sm text-ink-400">Updating...</p>}
           </>

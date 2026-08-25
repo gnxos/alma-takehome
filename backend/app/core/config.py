@@ -30,8 +30,19 @@ DNS_LOOKUP_TIMEOUT = 3
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Alma <onboarding@resend.dev>")
+# Lead-notification emails are sent over SMTP. Defaults point at a local
+# Mailpit instance (https://mailpit.axllent.org) for development — run
+# `docker compose up mailpit` (or the standalone mailpit binary) and view
+# caught mail at http://localhost:8025. For production, point these at a
+# real relay (e.g. Resend's SMTP relay, smtp.resend.com:587, using an API
+# key as the password) via environment variables.
+SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "false").lower() == "true"
+
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Alma <onboarding@alma.example.com>")
 ATTORNEY_EMAIL = os.getenv("ATTORNEY_EMAIL", "attorney@alma.example.com")
 
 ATTORNEY_PASSWORD = os.getenv("ATTORNEY_PASSWORD", "Alma123!")

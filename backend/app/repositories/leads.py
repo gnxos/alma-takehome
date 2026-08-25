@@ -2,7 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.lead import Lead, LeadStatus
+from app.models.lead import EmailDeliveryStatus, Lead, LeadStatus
 from app.schemas.leads import LeadUpdate
 from app.services.reference_numbers import generate_reference_number
 
@@ -17,6 +17,8 @@ def create(
     email: str,
     resume_filename: str,
     resume_path: str,
+    phone: str | None = None,
+    message: str | None = None,
 ) -> Lead:
     for _ in range(_MAX_REFERENCE_ATTEMPTS):
         lead = Lead(
@@ -26,6 +28,8 @@ def create(
             email=email,
             resume_filename=resume_filename,
             resume_path=resume_path,
+            phone=phone,
+            message=message,
         )
         db.add(lead)
         try:
@@ -100,6 +104,20 @@ def list_all(
 def update(db: Session, lead: Lead, changes: LeadUpdate) -> Lead:
     for field, value in changes.model_dump(exclude_unset=True).items():
         setattr(lead, field, value)
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+def update_email_statuses(
+    db: Session,
+    lead: Lead,
+    *,
+    prospect_status: EmailDeliveryStatus,
+    attorney_status: EmailDeliveryStatus,
+) -> Lead:
+    lead.prospect_email_status = prospect_status
+    lead.attorney_email_status = attorney_status
     db.commit()
     db.refresh(lead)
     return lead

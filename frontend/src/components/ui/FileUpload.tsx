@@ -44,7 +44,7 @@ export function FileUpload({
   }
 
   return (
-    <div>
+    <div className="w-full">
       <input
         ref={inputRef}
         type="file"
@@ -70,43 +70,47 @@ export function FileUpload({
           }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          className={`flex min-h-[44px] cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors ${
-            dragging ? "border-navy-600 bg-paper-100" : "border-ink-200"
-          } ${error ? "border-brick-600 bg-brick-50" : ""}`}
+          className={`group flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-5 text-center transition-all ${
+            dragging
+              ? "border-[#132A13] bg-[#E8F0DC]/40 scale-[0.99]"
+              : "border-ink-200 bg-paper-50/50 hover:border-ink-400 hover:bg-paper-100/60"
+          } ${error ? "border-brick-600 bg-brick-50/60" : ""}`}
         >
-          <UploadCloudIcon
-            className={`size-6 ${error ? "text-brick-600" : "text-ink-400"}`}
-          />
+          <div className="flex size-9 items-center justify-center rounded-full bg-paper-0 shadow-xs ring-1 ring-black/5 group-hover:scale-105 transition-transform">
+            <UploadCloudIcon
+              className={`size-4.5 ${error ? "text-brick-600" : "text-ink-700"}`}
+            />
+          </div>
           <p
-            className={`text-body-md ${error ? "text-brick-600" : "text-ink-900"}`}
+            className={`text-sm font-medium ${error ? "text-brick-600" : "text-ink-900"}`}
           >
-            Drag your r&eacute;sum&eacute; here, or click to browse
+            Upload resume or CV
           </p>
           <p
-            className={`text-body-sm ${error ? "text-brick-600" : "text-ink-400"}`}
+            className={`text-xs ${error ? "text-brick-600" : "text-ink-400"}`}
           >
-            PDF or Word, up to 10MB.
+            PDF or Word, max file size 10MB
           </p>
         </div>
       ) : (
         <div
-          className={`flex items-center gap-3 rounded-card border px-4 py-3 ${
+          className={`flex items-center gap-3 rounded-xl border p-3.5 transition-all ${
             error
               ? "border-brick-600 bg-brick-50"
-              : "border-ink-200 bg-paper-0"
+              : "border-ink-200 bg-paper-0 shadow-xs"
           }`}
         >
-          <FileIcon
-            className={`size-5 shrink-0 ${error ? "text-brick-600" : "text-ink-400"}`}
-          />
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-paper-100 text-ink-700">
+            <FileIcon className="size-4.5" />
+          </div>
           <div className="min-w-0 flex-1">
             <p
-              className={`text-body-md ${error ? "text-brick-600" : "text-ink-900"}`}
+              className={`truncate text-sm font-medium ${error ? "text-brick-600" : "text-ink-900"}`}
             >
-              {truncateMiddle(file.name)}
+              {file.name}
             </p>
             <p
-              className={`text-body-sm ${error ? "text-brick-600" : "text-ink-400"}`}
+              className={`text-xs ${error ? "text-brick-600" : "text-ink-400"}`}
             >
               {formatFileSize(file.size)}
             </p>
@@ -114,7 +118,7 @@ export function FileUpload({
           <button
             type="button"
             onClick={openBrowser}
-            className="shrink-0 text-body-sm font-medium text-navy-600 hover:underline"
+            className="shrink-0 text-xs font-semibold text-ink-700 hover:text-ink-900 hover:underline px-2 py-1"
           >
             Replace
           </button>
@@ -122,14 +126,14 @@ export function FileUpload({
             type="button"
             onClick={() => onFileChange(null)}
             aria-label="Remove file"
-            className="shrink-0 rounded-input p-1 text-ink-400 hover:bg-paper-100"
+            className="shrink-0 rounded-lg p-1.5 text-ink-400 hover:bg-paper-100 hover:text-ink-700 transition-colors"
           >
             <CloseIcon className="size-4" />
           </button>
         </div>
       )}
 
-      {error && <p className="mt-1.5 text-body-sm text-brick-600">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-brick-600 font-medium">{error}</p>}
     </div>
   );
 }
