@@ -63,6 +63,15 @@ def get_by_email(db: Session, email: str) -> Lead | None:
     )
 
 
+def get_pending_by_email(db: Session, email: str) -> Lead | None:
+    return (
+        db.query(Lead)
+        .filter(Lead.email == email, Lead.status == LeadStatus.PENDING)
+        .order_by(Lead.created_at.desc())
+        .first()
+    )
+
+
 def list_by_email(db: Session, email: str) -> list[Lead]:
     normalized_email = email.strip().lower()
     return (

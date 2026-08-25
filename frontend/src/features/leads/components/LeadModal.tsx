@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/Button";
 import { CloseIcon, DownloadIcon } from "@/components/ui/icons";
 import { redirectToLogin } from "@/features/auth/api";
 import { UnauthorizedError } from "@/lib/api/client";
 import { getLead, resumeUrl, updateLead } from "../api";
-import type { Lead } from "../types";
-import { StatusBadge } from "./StatusBadge";
+import type { Lead, LeadStatus } from "../types";
+import { StatusSelect } from "./StatusBadge";
 
 interface LeadModalProps {
   leadId: string;
@@ -21,6 +20,14 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // Mount closed, then flip open on the next frame so the slide-in
+    // transition actually animates instead of starting already-open.
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,12 +64,12 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  async function markReachedOut() {
-    if (!lead) return;
+  async function changeStatus(newStatus: LeadStatus) {
+    if (!lead || newStatus === lead.status) return;
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateLead(lead.id, { status: "REACHED_OUT" });
+      const updated = await updateLead(lead.id, { status: newStatus });
       setLead(updated);
       onUpdated(updated);
     } catch (requestError) {
@@ -82,14 +89,18 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-4"
+      className={`fixed inset-0 z-50 bg-ink-900/40 transition-opacity motion-reduce:transition-none ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-lg rounded-card bg-paper-0 p-6 shadow-modal"
+        className={`fixed inset-y-0 right-0 flex w-full max-w-[min(480px,100vw)] flex-col overflow-y-auto border-l border-ink-200 bg-paper-0 p-6 shadow-modal transition-transform duration-200 ease-out motion-reduce:transition-none ${
+          visible ? "translate-x-0" : "translate-x-full"
+        }`}
       >
         <div className="flex items-start justify-between">
           <div>
@@ -120,7 +131,7 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
         {!loading && lead && (
           <>
             <div className="mt-2">
-              <StatusBadge status={lead.status} />
+              <StatusSelect status={lead.status} disabled={saving} onChange={changeStatus} />
             </div>
 
             <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-body-md">
@@ -154,17 +165,7 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
               </dd>
             </dl>
 
-            {lead.status === "PENDING" && (
-              <div className="mt-6 border-t border-ink-200 pt-4">
-                <Button
-                  onClick={markReachedOut}
-                  loading={saving}
-                  fullWidth
-                >
-                  {saving ? "Updating..." : "Mark as reached out"}
-                </Button>
-              </div>
-            )}
+            {saving && <p className="mt-4 text-body-sm text-ink-400">Updating...</p>}
           </>
         )}
 

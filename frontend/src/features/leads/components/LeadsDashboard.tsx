@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { ChevronDownIcon } from "@/components/ui/icons";
 import { buttonClasses } from "@/components/ui/Button";
 import { logout, redirectToLogin } from "@/features/auth/api";
 import { useLeads } from "../hooks/useLeads";
 import type { LeadFilter } from "../types";
+import { EmailTicketsDrawer } from "./EmailTicketsDrawer";
 import { LeadModal } from "./LeadModal";
 import { LeadsTable } from "./LeadsTable";
 
@@ -29,19 +31,16 @@ function LeadsDashboardContent() {
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<LeadFilter>("ALL");
   const [viewLeadId, setViewLeadId] = useState<string | null>(null);
+  const [viewEmail, setViewEmail] = useState<string | null>(null);
   const [deepLinkConsumed, setDeepLinkConsumed] = useState(false);
   const {
     attorneyEmail,
     leads,
-    selectedEmail,
     loading,
-    loadingEmail,
     error,
     updatingId,
     applyUpdate,
-    filterByEmail,
-    clearEmailFilter,
-    markReachedOut,
+    changeStatus,
   } = useLeads();
 
   if (!deepLinkConsumed && leads.length > 0) {
@@ -65,18 +64,15 @@ function LeadsDashboardContent() {
     redirectToLogin();
   }
 
-  function handleSelectEmail(email: string) {
-    setFilter("ALL");
+  function handleOpenLead(leadId: string) {
+    setViewEmail(null);
+    setViewLeadId(leadId);
+  }
+
+  function handleOpenEmail(email: string) {
     setViewLeadId(null);
-    void filterByEmail(email);
+    setViewEmail(email);
   }
-
-  function handleClearEmailFilter() {
-    setFilter("ALL");
-    clearEmailFilter();
-  }
-
-  const isLoading = loading || loadingEmail;
 
   return (
     <div className="min-h-screen bg-paper-50 font-sans">
@@ -104,8 +100,7 @@ function LeadsDashboardContent() {
           <div>
             <h1 className="text-heading-lg text-ink-900">Manage Leads</h1>
             <p className="mt-1 text-body-sm text-ink-400">
-              {selectedEmail ? `${leads.length} tickets` : `${leads.length} total`}{" "}
-              &middot; {pendingCount} pending
+              {leads.length} total &middot; {pendingCount} pending
             </p>
           </div>
           <Link href="/" className={buttonClasses()}>
@@ -113,48 +108,42 @@ function LeadsDashboardContent() {
           </Link>
         </div>
 
-        {selectedEmail && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-navy-600/20 bg-paper-0 px-4 py-3">
-            <p className="text-body-sm text-ink-700">
-              Showing all tickets for{" "}
-              <span className="font-mono-alma text-mono-sm font-medium text-navy-600">
-                {selectedEmail}
-              </span>
-            </p>
-            <button
-              onClick={handleClearEmailFilter}
-              className="text-body-sm font-medium text-navy-600 hover:underline"
-            >
-              Clear email filter
-            </button>
-          </div>
-        )}
-
-        {!isLoading && leads.length > 0 && (
+        {!loading && leads.length > 0 && (
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard
-              label={selectedEmail ? "Total tickets" : "Total leads"}
-              value={leads.length}
-            />
+            <StatCard label="Total leads" value={leads.length} />
             <StatCard label="Pending" value={pendingCount} tone="ochre" />
             <StatCard label="Reached out" value={reachedOutCount} tone="sage" />
           </div>
         )}
 
-        <div className="mt-6 flex gap-2">
-          {STATUS_FILTERS.map((item) => (
-            <button
-              key={item.value}
-              onClick={() => setFilter(item.value)}
-              className={`rounded-pill px-3 py-1 text-body-sm font-medium ${
-                filter === item.value
-                  ? "bg-navy-600 text-paper-0"
-                  : "bg-paper-100 text-ink-700 hover:bg-paper-100/70"
-              }`}
+        <div className="mt-6 flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="status-filter"
+              className="text-label-sm font-medium text-ink-700"
             >
-              {item.label}
-            </button>
-          ))}
+              Status:
+            </label>
+            <div className="relative">
+              <select
+                id="status-filter"
+                value={filter}
+                onChange={(event) =>
+                  setFilter(event.target.value as LeadFilter)
+                }
+                className="h-9 cursor-pointer appearance-none rounded-input border border-ink-200 bg-paper-0 py-1.5 pl-3 pr-8 text-body-sm font-medium text-ink-900 shadow-sm transition hover:border-ink-400 focus:border-navy-600 focus:outline-none focus:ring-2 focus:ring-navy-600/20"
+              >
+                {STATUS_FILTERS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-ink-400">
+                <ChevronDownIcon className="size-4" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -163,36 +152,30 @@ function LeadsDashboardContent() {
           </p>
         )}
 
-        {isLoading && <SkeletonTable />}
+        {loading && <SkeletonTable />}
 
-        {!isLoading && !error && leads.length === 0 && (
+        {!loading && !error && leads.length === 0 && (
           <div className="mt-10 text-center">
-            <p className="text-body-md text-ink-700">
-              {selectedEmail
-                ? "No tickets found for this email."
-                : "No applications yet."}
-            </p>
+            <p className="text-body-md text-ink-700">No applications yet.</p>
             <p className="mt-1 text-body-sm text-ink-400">
-              {selectedEmail
-                ? "Clear the email filter to return to all leads."
-                : "New submissions from the intake form will show up here."}
+              New submissions from the intake form will show up here.
             </p>
           </div>
         )}
 
-        {!isLoading && !error && leads.length > 0 && visibleLeads.length === 0 && (
+        {!loading && !error && leads.length > 0 && visibleLeads.length === 0 && (
           <p className="mt-10 text-center text-body-md text-ink-700">
             No leads match this filter.
           </p>
         )}
 
-        {!isLoading && visibleLeads.length > 0 && (
+        {!loading && visibleLeads.length > 0 && (
           <LeadsTable
             leads={visibleLeads}
             updatingId={updatingId}
-            onOpen={setViewLeadId}
-            onSelectEmail={handleSelectEmail}
-            onMarkReachedOut={markReachedOut}
+            onOpen={handleOpenLead}
+            onOpenEmail={handleOpenEmail}
+            onChangeStatus={changeStatus}
           />
         )}
       </div>
@@ -201,6 +184,15 @@ function LeadsDashboardContent() {
         <LeadModal
           leadId={viewLeadId}
           onClose={() => setViewLeadId(null)}
+          onUpdated={applyUpdate}
+        />
+      )}
+
+      {viewEmail && (
+        <EmailTicketsDrawer
+          key={viewEmail}
+          email={viewEmail}
+          onClose={() => setViewEmail(null)}
           onUpdated={applyUpdate}
         />
       )}
