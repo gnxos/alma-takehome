@@ -38,6 +38,11 @@ export function LeadsTable({
               </p>
               <p className="mt-1 text-body-sm text-ink-400">
                 {new Date(lead.created_at).toLocaleDateString()}
+                {lead.resolved_by && lead.status === "REACHED_OUT" && (
+                  <span className="ml-2 font-mono-alma text-xs text-navy-600">
+                    • resolved by {lead.resolved_by.split("@")[0]}
+                  </span>
+                )}
               </p>
             </button>
             <button
@@ -111,6 +116,11 @@ export function LeadsTable({
                     disabled={updatingId === lead.id}
                     onChange={(status) => onChangeStatus(lead, status)}
                   />
+                  {lead.resolved_by && lead.status === "REACHED_OUT" && (
+                    <p className="mt-0.5 font-mono-alma text-[11px] text-ink-500 truncate max-w-[140px]" title={`Resolved by ${lead.resolved_by}`}>
+                      by {lead.resolved_by.split("@")[0]}
+                    </p>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 text-ink-400">
                   {new Date(lead.created_at).toLocaleDateString()}

@@ -14,9 +14,11 @@ docker compose up --build
 
 ### Where to go:
 - **Public Form**: [http://localhost:3000](http://localhost:3000) (submit a new lead)
-- **Attorney Login**: [http://localhost:3000/login](http://localhost:3000/login)
-  - **Email**: `attorney@alma.example.com`
-  - **Password**: `Alma123!`
+- **Attorney Login**: [http://localhost:3000/login](http://localhost:3000/login) (3 test profiles available)
+  - Profile 1: `attorney@alma.example.com` (Managing Attorney)
+  - Profile 2: `sarah.jenkins@alma.example.com` (Sarah Jenkins, Esq.)
+  - Profile 3: `michael.chang@alma.example.com` (Michael Chang, Esq.)
+  - Password: `Alma123!` (quick 1-click select available on login screen)
 - **Email Inbox (Mailpit)**: [http://localhost:8025](http://localhost:8025) (see all sent emails)
 - **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 

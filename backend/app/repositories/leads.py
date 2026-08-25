@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -104,9 +106,22 @@ def list_all(
     return total, items
 
 
-def update(db: Session, lead: Lead, changes: LeadUpdate) -> Lead:
+def update(
+    db: Session,
+    lead: Lead,
+    changes: LeadUpdate,
+    resolved_by: str | None = None,
+) -> Lead:
     for field, value in changes.model_dump(exclude_unset=True).items():
         setattr(lead, field, value)
+
+    if changes.status == LeadStatus.REACHED_OUT:
+        lead.resolved_by = resolved_by
+        lead.resolved_at = datetime.now(timezone.utc)
+    elif changes.status == LeadStatus.PENDING:
+        lead.resolved_by = None
+        lead.resolved_at = None
+
     db.commit()
     db.refresh(lead)
     return lead

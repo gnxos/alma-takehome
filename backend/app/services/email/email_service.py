@@ -51,6 +51,7 @@ class EmailService:
         resend_api_key: str | None = None,
         email_from: str | None = None,
         attorney_email: str | None = None,
+        attorney_emails: list[str] | str | None = None,
         frontend_url: str | None = None,
         email_backend: str | None = None,
         smtp_host: str | None = None,
@@ -60,9 +61,20 @@ class EmailService:
             config.RESEND_API_KEY if resend_api_key is None else resend_api_key
         )
         self.email_from = config.EMAIL_FROM if email_from is None else email_from
-        self.attorney_email = (
-            config.ATTORNEY_EMAIL if attorney_email is None else attorney_email
-        )
+
+        if attorney_emails is not None:
+            if isinstance(attorney_emails, str):
+                self.attorney_emails = [e.strip() for e in attorney_emails.split(",") if e.strip()]
+            else:
+                self.attorney_emails = [e.strip() for e in attorney_emails if e.strip()]
+        elif attorney_email is not None:
+            self.attorney_emails = [attorney_email.strip()] if attorney_email.strip() else []
+        else:
+            raw_emails = config.ATTORNEY_EMAILS or config.ATTORNEY_EMAIL
+            self.attorney_emails = [e.strip() for e in raw_emails.split(",") if e.strip()]
+
+        self.attorney_email = self.attorney_emails[0] if self.attorney_emails else ""
+
         self.frontend_url = (
             config.FRONTEND_URL if frontend_url is None else frontend_url
         ).rstrip("/")
@@ -76,7 +88,7 @@ class EmailService:
         self._deliver(self._prospect_payload(lead))
 
     def send_attorney_notification(self, lead: Lead) -> None:
-        if not self.attorney_email.strip():
+        if not self.attorney_emails:
             raise EmailConfigurationError("ATTORNEY_EMAIL is not configured")
         self._deliver(self._attorney_payload(lead))
 
@@ -130,9 +142,15 @@ class EmailService:
             "subject_name": subject_name,
         }
 
+        recipients = (
+            [_safe_header(e) for e in self.attorney_emails]
+            if self.attorney_emails
+            else [_safe_header(self.attorney_email)]
+        )
+
         return {
             "from": _safe_header(self.email_from),
-            "to": [_safe_header(self.attorney_email)],
+            "to": recipients,
             "subject": tmpl["subject"].format(**ctx),
             "text": tmpl["text"].format(**ctx),
             "html": tmpl["html"].format(**ctx),

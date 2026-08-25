@@ -10,12 +10,25 @@ from app.core import config
 ALGORITHM = "HS256"
 
 
+def get_attorney_accounts() -> dict[str, str]:
+    accounts = {
+        email.lower(): info["password"]
+        for email, info in config.DEFAULT_ATTORNEYS.items()
+    }
+    if config.ATTORNEY_EMAIL:
+        accounts[config.ATTORNEY_EMAIL.strip().lower()] = config.ATTORNEY_PASSWORD
+    return accounts
+
+
 def verify_credentials(email: str, password: str) -> bool:
-    if email.strip().lower() != config.ATTORNEY_EMAIL.strip().lower():
+    accounts = get_attorney_accounts()
+    normalized_email = email.strip().lower()
+    if normalized_email not in accounts:
         return False
+    expected_password = accounts[normalized_email]
     return secrets.compare_digest(
         password.encode(),
-        config.ATTORNEY_PASSWORD.encode(),
+        expected_password.encode(),
     )
 
 

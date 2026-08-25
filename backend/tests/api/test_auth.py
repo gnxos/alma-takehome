@@ -39,6 +39,20 @@ def test_login_email_is_case_insensitive(client):
     assert response.status_code == 200
 
 
+def test_login_multiple_attorney_profiles(client):
+    for email in ["sarah.jenkins@alma.example.com", "michael.chang@alma.example.com"]:
+        client.post("/logout")
+        response = client.post(
+            "/login",
+            json={"email": email, "password": "Alma123!"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"email": email}
+        me_resp = client.get("/auth/me")
+        assert me_resp.status_code == 200
+        assert me_resp.json() == {"email": email}
+
+
 def test_logout_clears_cookie(client):
     response = client.post("/logout")
     assert response.status_code == 200

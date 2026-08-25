@@ -398,7 +398,18 @@ def test_update_lead_status(client):
     created = create_lead(client).json()
     response = client.patch(f"/api/leads/{created['id']}", json={"status": "REACHED_OUT"})
     assert response.status_code == 200
-    assert response.json()["status"] == "REACHED_OUT"
+    data = response.json()
+    assert data["status"] == "REACHED_OUT"
+    assert data["resolved_by"] == config.ATTORNEY_EMAIL
+    assert data["resolved_at"] is not None
+
+    # Reverting to PENDING clears resolved_by and resolved_at
+    revert_resp = client.patch(f"/api/leads/{created['id']}", json={"status": "PENDING"})
+    assert revert_resp.status_code == 200
+    revert_data = revert_resp.json()
+    assert revert_data["status"] == "PENDING"
+    assert revert_data["resolved_by"] is None
+    assert revert_data["resolved_at"] is None
 
 
 def test_update_lead_fields(client):

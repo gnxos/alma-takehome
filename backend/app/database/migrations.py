@@ -32,6 +32,8 @@ def init_db(target_engine: Engine | None = None) -> None:
         ("message", "VARCHAR"),
         ("prospect_email_status", "VARCHAR DEFAULT 'PENDING'"),
         ("attorney_email_status", "VARCHAR DEFAULT 'PENDING'"),
+        ("resolved_by", "VARCHAR"),
+        ("resolved_at", "DATETIME"),
     ]
 
     with database_engine.begin() as connection:

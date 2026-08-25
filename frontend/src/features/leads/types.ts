@@ -14,6 +14,8 @@ export interface Lead {
   message?: string | null;
   prospect_email_status: EmailDeliveryStatus;
   attorney_email_status: EmailDeliveryStatus;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -40,6 +40,11 @@ Backend (FastAPI :8000)
 - **Why**: 4 digits had only 9,000 combinations (colliding at ~118 leads). The 6-character format provides over **1 billion** unique IDs per year and avoids confusing characters (`I`, `L`, `O`, `U`).
 - Included in both the prospect confirmation email and attorney notification.
 
+### 👥 Multi-Attorney Support & Resolution Tracking
+- **Configurable Profiles**: Supports multiple attorney profiles with individual credentials and names. Pre-configured with 3 default accounts (`attorney@alma.example.com`, `sarah.jenkins@alma.example.com`, `michael.chang@alma.example.com`).
+- **Notification Fan-out**: New leads notify all configured attorneys via `ATTORNEY_EMAILS`.
+- **Status Audit Tracking**: When an attorney transitions a lead to `REACHED_OUT`, the backend automatically stamps `resolved_by` (their email) and `resolved_at` (UTC timestamp) for complete accountability. Reverting to `PENDING` clears resolution state.
+
 ### 🔄 Lead Lifecycle & De-duplication
 - If a prospect submits again while their lead is still **`PENDING`**, the API returns their existing ticket.
 - Once marked **`REACHED_OUT`**, new submissions create a fresh ticket.

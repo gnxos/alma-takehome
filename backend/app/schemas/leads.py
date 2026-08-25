@@ -75,6 +75,8 @@ class LeadOut(LeadFields):
     resume_filename: str
     prospect_email_status: EmailDeliveryStatus
     attorney_email_status: EmailDeliveryStatus
+    resolved_by: Optional[str] = None
+    resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

@@ -76,9 +76,37 @@ export function LoginForm() {
           </Button>
         </form>
 
-        <p className="mt-10 text-body-sm text-ink-400">
-          Internal tool for Alma attorneys. Accounts are provisioned by your
-          administrator.
+        <div className="mt-8 border-t border-ink-100 pt-6">
+          <p className="text-label-sm font-semibold text-ink-700">Quick sign-in profiles:</p>
+          <div className="mt-3 flex flex-col gap-2">
+            {[
+              { name: "Managing Attorney", email: "attorney@alma.example.com" },
+              { name: "Sarah Jenkins, Esq.", email: "sarah.jenkins@alma.example.com" },
+              { name: "Michael Chang, Esq.", email: "michael.chang@alma.example.com" },
+            ].map((profile) => (
+              <button
+                key={profile.email}
+                type="button"
+                onClick={() => {
+                  setEmail(profile.email);
+                  setPassword("Alma123!");
+                  setError(null);
+                }}
+                className="flex items-center justify-between rounded-lg border border-paper-200 bg-paper-50 px-3 py-2 text-left text-body-sm transition hover:border-navy-600 hover:bg-paper-100"
+              >
+                <div>
+                  <p className="font-medium text-ink-900">{profile.name}</p>
+                  <p className="font-mono-alma text-mono-sm text-ink-500">{profile.email}</p>
+                </div>
+                <span className="text-xs font-semibold text-navy-600">Select</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="mt-6 text-body-sm text-ink-400">
+          Internal tool for Alma attorneys. Default password for test profiles is{" "}
+          <code className="rounded bg-paper-100 px-1 py-0.5 font-mono-alma text-ink-700">Alma123!</code>.
         </p>
       </div>
 

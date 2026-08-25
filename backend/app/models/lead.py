@@ -42,6 +42,8 @@ class Lead(Base):
     attorney_email_status = Column(
         Enum(EmailDeliveryStatus), nullable=False, default=EmailDeliveryStatus.PENDING
     )
+    resolved_by = Column(String(255), nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,

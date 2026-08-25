@@ -170,7 +170,7 @@ def update_lead(
     _attorney_email: str = _require_attorney,
 ) -> Lead:
     lead = _get_lead_or_404(db, lead_id)
-    return lead_repository.update(db, lead, changes)
+    return lead_repository.update(db, lead, changes, resolved_by=_attorney_email)
 
 
 @router.get("/{lead_id}/resume")
