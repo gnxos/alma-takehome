@@ -1,18 +1,41 @@
+import html
+import json
 import logging
+import re
 import smtplib
 from collections.abc import Callable
+from datetime import datetime, timezone
 from email.message import EmailMessage
+from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 import resend
 
 from app.core import config
 from app.models.lead import Lead
-from app.services.email.templates._shared import EmailPayload
-from app.services.email.templates.attorney_email import build_attorney_email
-from app.services.email.templates.prospect_email import build_prospect_email
 
 logger = logging.getLogger(__name__)
+
+EmailPayload = dict[str, Any]
+_HEADER_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]+")
+
+_TEMPLATES_FILE = Path(__file__).parent / "templates.json"
+with open(_TEMPLATES_FILE, "r", encoding="utf-8") as _f:
+    EMAIL_TEMPLATES = json.load(_f)
+
+
+def _safe_header(value: str) -> str:
+    return " ".join(_HEADER_CONTROL_CHARACTERS.sub(" ", value).split())
+
+
+def _format_submission_time(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    rendered = value.strftime("%B %d, %Y at %H:%M %Z").strip()
+    return rendered.replace(" 0", " ")
 
 
 class EmailConfigurationError(RuntimeError):
@@ -56,16 +79,62 @@ class EmailService:
         self._deliver(self._attorney_payload(lead))
 
     def _prospect_payload(self, lead: Lead) -> EmailPayload:
-        return build_prospect_email(lead, email_from=self.email_from)
+        tmpl = EMAIL_TEMPLATES["prospect"]
+        ref_number = lead.reference_number if getattr(lead, "reference_number", None) else ""
+        ref_number_html = html.escape(ref_number, quote=True)
+
+        ticket_ref_text = f"\nYour Ticket Reference: {ref_number}\n" if ref_number else ""
+        ticket_ref_html = (
+            f'<div style="background-color: #f3f4f6; border-radius: 6px; padding: 12px 16px; margin: 16px 0; border: 1px solid #e5e7eb;">'
+            f'<p style="margin: 0; font-size: 13px; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Your Ticket Reference</p>'
+            f'<p style="margin: 4px 0 0 0; font-size: 18px; font-weight: bold; color: #111827; letter-spacing: 1px;">{ref_number_html}</p>'
+            f'</div>'
+            if ref_number
+            else ""
+        )
+
+        ctx = {
+            "first_name": lead.first_name,
+            "first_name_html": html.escape(lead.first_name, quote=True),
+            "ticket_ref_text": ticket_ref_text,
+            "ticket_ref_html": ticket_ref_html,
+        }
+
+        return {
+            "from": _safe_header(self.email_from),
+            "to": [_safe_header(lead.email)],
+            "subject": tmpl["subject"].format(**ctx),
+            "text": tmpl["text"].format(**ctx),
+            "html": tmpl["html"].format(**ctx),
+        }
 
     def _attorney_payload(self, lead: Lead) -> EmailPayload:
+        tmpl = EMAIL_TEMPLATES["attorney"]
         lead_url = self.lead_details_url(lead)
-        return build_attorney_email(
-            lead,
-            email_from=self.email_from,
-            attorney_email=self.attorney_email,
-            lead_url=lead_url,
-        )
+        submitted = _format_submission_time(lead.created_at)
+        subject_name = _safe_header(f"{lead.first_name} {lead.last_name}")
+
+        ctx = {
+            "first_name": lead.first_name,
+            "last_name": lead.last_name,
+            "first_name_html": html.escape(lead.first_name, quote=True),
+            "last_name_html": html.escape(lead.last_name, quote=True),
+            "email": lead.email,
+            "email_html": html.escape(lead.email, quote=True),
+            "submitted": submitted,
+            "submitted_html": html.escape(submitted, quote=True),
+            "lead_url": lead_url,
+            "lead_url_html": html.escape(lead_url, quote=True),
+            "subject_name": subject_name,
+        }
+
+        return {
+            "from": _safe_header(self.email_from),
+            "to": [_safe_header(self.attorney_email)],
+            "subject": tmpl["subject"].format(**ctx),
+            "text": tmpl["text"].format(**ctx),
+            "html": tmpl["html"].format(**ctx),
+        }
 
     def lead_details_url(self, lead: Lead) -> str:
         lead_id = quote(str(lead.id), safe="")
