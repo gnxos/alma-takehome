@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { CloseIcon, DownloadIcon } from "@/components/ui/icons";
+import {
+  BellIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  DownloadIcon,
+} from "@/components/ui/icons";
 import { redirectToLogin } from "@/features/auth/api";
 import { UnauthorizedError } from "@/lib/api/client";
 import { getLead, resumeUrl, updateLead } from "../api";
@@ -21,6 +26,7 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     // Mount closed, then flip open on the next frame so the slide-in
@@ -199,9 +205,39 @@ export function LeadModal({ leadId, onClose, onUpdated }: LeadModalProps) {
               </dd>
             </dl>
 
-            <div className="mt-5 flex flex-col gap-2 border-t border-ink-200 pt-4">
-              <EmailStatusBadge label="Prospect email" status={lead.prospect_email_status} />
-              <EmailStatusBadge label="Attorney email" status={lead.attorney_email_status} />
+            <div className="mt-5 border-t border-ink-200 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                className="flex w-full items-center justify-between rounded-input p-2 text-left text-body-sm font-medium text-ink-700 hover:bg-paper-100 hover:text-ink-900 transition-colors"
+                aria-expanded={showNotifications}
+              >
+                <div className="flex items-center gap-2">
+                  <BellIcon className="size-4 text-ink-400" />
+                  <span>Notifications</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-label-sm text-ink-400">
+                  <span>{showNotifications ? "Hide" : "Show"}</span>
+                  <ChevronDownIcon
+                    className={`size-4 transition-transform duration-200 ${
+                      showNotifications ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {showNotifications && (
+                <div className="mt-2.5 flex flex-col gap-2.5 rounded-card border border-ink-200 bg-paper-50 p-3.5">
+                  <EmailStatusBadge
+                    label="Prospect email"
+                    status={lead.prospect_email_status}
+                  />
+                  <EmailStatusBadge
+                    label="Attorney email"
+                    status={lead.attorney_email_status}
+                  />
+                </div>
+              )}
             </div>
 
             {saving && <p className="mt-4 text-body-sm text-ink-400">Updating...</p>}
