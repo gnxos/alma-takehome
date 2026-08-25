@@ -24,6 +24,7 @@ backend/app/
 ├── repositories/    # Persistence queries and mutations
 ├── schemas/         # Pydantic request and response contracts
 ├── services/        # Email, upload storage, and content validation
+├── templates/       # Prospect and attorney email rendering
 └── main.py          # Application factory and middleware setup
 
 backend/tests/
