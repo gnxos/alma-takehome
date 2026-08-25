@@ -20,9 +20,11 @@ logger = logging.getLogger(__name__)
 EmailPayload = dict[str, Any]
 _HEADER_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]+")
 
-_TEMPLATES_FILE = Path(__file__).parent / "templates.json"
-with open(_TEMPLATES_FILE, "r", encoding="utf-8") as _f:
-    EMAIL_TEMPLATES = json.load(_f)
+_TEMPLATES_DIR = Path(__file__).parent / "templates"
+EMAIL_TEMPLATES = {
+    file.stem: json.loads(file.read_text(encoding="utf-8"))
+    for file in _TEMPLATES_DIR.glob("*.json")
+}
 
 
 def _safe_header(value: str) -> str:

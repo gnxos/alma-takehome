@@ -1,0 +1,5 @@
+{
+  "subject": "New lead: {subject_name}",
+  "text": "A new lead was submitted.\n\nName: {first_name} {last_name}\nEmail: {email}\nSubmitted: {submitted}\n\nReview lead:\n{lead_url}",
+  "html": "<div style=\"font-family: sans-serif; max-width: 560px; margin: 0 auto;\"><p>A new lead was submitted.</p><table cellpadding=\"4\" cellspacing=\"0\"><tr><td><strong>Name</strong></td><td>{first_name_html} {last_name_html}</td></tr><tr><td><strong>Email</strong></td><td>{email_html}</td></tr><tr><td><strong>Submitted</strong></td><td>{submitted_html}</td></tr></table><p><a href=\"{lead_url_html}\">Review lead</a></p></div>"
+}
