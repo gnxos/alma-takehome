@@ -8,9 +8,9 @@ import resend
 
 from app.core import config
 from app.models.lead import Lead
-from app.templates._shared import EmailPayload
-from app.templates.attorney_email import build_attorney_email
-from app.templates.prospect_email import build_prospect_email
+from app.services.email.templates._shared import EmailPayload
+from app.services.email.templates.attorney_email import build_attorney_email
+from app.services.email.templates.prospect_email import build_prospect_email
 
 logger = logging.getLogger(__name__)
 

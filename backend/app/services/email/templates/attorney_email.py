@@ -1,7 +1,7 @@
 import html
 
 from app.models.lead import Lead
-from app.templates._shared import (
+from ._shared import (
     EmailPayload,
     format_submission_time,
     safe_header,

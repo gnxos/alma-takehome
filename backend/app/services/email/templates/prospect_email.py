@@ -1,7 +1,7 @@
 import html
 
 from app.models.lead import Lead
-from app.templates._shared import EmailPayload, safe_header
+from ._shared import EmailPayload, safe_header
 
 SUBJECT = "We received your information"
 
