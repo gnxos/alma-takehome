@@ -9,6 +9,7 @@ from fastapi import (
     Form,
     HTTPException,
     Request,
+    Response,
     UploadFile,
     status,
 )
@@ -63,9 +64,17 @@ async def _save_resume(resume: UploadFile) -> tuple[str, str]:
     return resume.filename or stored_name, str(stored_path)
 
 
-@router.post("", response_model=schemas.LeadOut, status_code=status.HTTP_201_CREATED)
+def _get_lead_or_404(db: Session, lead_id: str):
+    lead = crud.get_lead_by_id_or_reference(db, lead_id)
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return lead
+
+
+@router.post("", response_model=schemas.LeadCreateResult, status_code=status.HTTP_201_CREATED)
 async def create_lead(
     request: Request,
+    response: Response,
     background_tasks: BackgroundTasks,
     first_name: str = Form(...),
     last_name: str = Form(...),
@@ -88,6 +97,15 @@ async def create_lead(
             status_code=422, detail=exc.errors(include_context=False, include_url=False)
         )
 
+    # Don't create a second ticket for a prospect who already has one —
+    # hand back the existing ticket instead.
+    existing = crud.get_lead_by_email(db, validated.email)
+    if existing is not None:
+        response.status_code = status.HTTP_200_OK
+        result = schemas.LeadCreateResult.model_validate(existing)
+        result.already_exists = True
+        return result
+
     original_filename, stored_path = await _save_resume(resume)
     lead = crud.create_lead(
         db,
@@ -100,7 +118,7 @@ async def create_lead(
     # Runs after the response is sent, so a slow/failing email provider never
     # delays lead creation for the prospect.
     background_tasks.add_task(email_service.send_lead_notifications, lead)
-    return lead
+    return schemas.LeadCreateResult.model_validate(lead)
 
 
 @router.get("", response_model=schemas.LeadList)
@@ -117,10 +135,9 @@ def list_leads(
 
 @router.get("/{lead_id}", response_model=schemas.LeadOut)
 def get_lead(lead_id: str, db: Session = Depends(get_db), _attorney_email: str = _require_attorney):
-    lead = crud.get_lead(db, lead_id)
-    if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return lead
+    """`lead_id` accepts either the internal id or the ticket reference
+    number (e.g. INT-2026-7473), so a lead can be looked up either way."""
+    return _get_lead_or_404(db, lead_id)
 
 
 @router.patch("/{lead_id}", response_model=schemas.LeadOut)
@@ -130,9 +147,7 @@ def update_lead(
     db: Session = Depends(get_db),
     _attorney_email: str = _require_attorney,
 ):
-    lead = crud.get_lead(db, lead_id)
-    if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = _get_lead_or_404(db, lead_id)
     return crud.update_lead(db, lead, changes)
 
 
@@ -140,9 +155,7 @@ def update_lead(
 def download_resume(
     lead_id: str, db: Session = Depends(get_db), _attorney_email: str = _require_attorney
 ):
-    lead = crud.get_lead(db, lead_id)
-    if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = _get_lead_or_404(db, lead_id)
     path = Path(lead.resume_path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Resume file not found")

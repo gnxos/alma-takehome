@@ -1,7 +1,10 @@
 import io
+import re
 
 from app import config
 from tests.factories import GARBAGE_BYTES, make_docx_bytes, make_pdf_bytes
+
+REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-\d{4}$")
 
 
 def _create_lead(client, **overrides):
@@ -26,6 +29,48 @@ def test_create_lead_success(client):
     assert body["email"] == "ada@example.com"
     assert body["status"] == "PENDING"
     assert body["resume_filename"] == "resume.pdf"
+    assert REFERENCE_NUMBER_RE.match(body["reference_number"])
+    assert body["already_exists"] is False
+
+
+def test_create_lead_returns_existing_ticket_for_duplicate_email(client):
+    first = _create_lead(client, email="dupe@example.com").json()
+
+    second_response = _create_lead(
+        client, email="dupe@example.com", first_name="Someone", last_name="Else"
+    )
+
+    assert second_response.status_code == 200
+    second = second_response.json()
+    assert second["already_exists"] is True
+    assert second["id"] == first["id"]
+    assert second["reference_number"] == first["reference_number"]
+    # The original record is untouched — not overwritten by the second submission.
+    assert second["first_name"] == "Ada"
+
+
+def test_get_lead_by_reference_number(client):
+    created = _create_lead(client).json()
+    response = client.get(f"/api/leads/{created['reference_number']}")
+    assert response.status_code == 200
+    assert response.json()["id"] == created["id"]
+
+
+def test_update_lead_by_reference_number(client):
+    created = _create_lead(client).json()
+    response = client.patch(
+        f"/api/leads/{created['reference_number']}", json={"status": "REACHED_OUT"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "REACHED_OUT"
+
+
+def test_download_resume_by_reference_number(client):
+    resume_bytes = make_pdf_bytes()
+    created = _create_lead(client, resume_bytes=resume_bytes).json()
+    response = client.get(f"/api/leads/{created['reference_number']}/resume")
+    assert response.status_code == 200
+    assert response.content == resume_bytes
 
 
 def test_create_lead_triggers_email_notifications(client, monkeypatch):

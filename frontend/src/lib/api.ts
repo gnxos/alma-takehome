@@ -1,4 +1,4 @@
-import type { Attorney, Lead, LeadList, LeadStatus } from "./types";
+import type { Attorney, Lead, LeadCreateResult, LeadList, LeadStatus } from "./types";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -42,7 +42,7 @@ export async function createLead(form: {
   last_name: string;
   email: string;
   resume: File;
-}): Promise<Lead> {
+}): Promise<LeadCreateResult> {
   const formData = new FormData();
   formData.append("first_name", form.first_name);
   formData.append("last_name", form.last_name);
@@ -53,7 +53,7 @@ export async function createLead(form: {
     method: "POST",
     body: formData,
   });
-  return handle<Lead>(response);
+  return handle<LeadCreateResult>(response);
 }
 
 export async function listLeads(status?: LeadStatus): Promise<LeadList> {
@@ -101,6 +101,15 @@ export async function login(email: string, password: string): Promise<Attorney> 
 
 export async function logout(): Promise<void> {
   await fetch(`${API_URL}/logout`, { method: "POST", credentials: "include" });
+}
+
+/**
+ * A hard navigation (not client-side routing) so no stale leads data or
+ * component state survives in memory once the session is gone, and the
+ * dashboard route is dropped from history — "back" can't return to it.
+ */
+export function redirectToLogin(): void {
+  window.location.replace("/login");
 }
 
 export async function getMe(): Promise<Attorney> {

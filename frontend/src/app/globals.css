@@ -5,11 +5,65 @@
   --foreground: #171717;
 }
 
+/* Design tokens — see ui-design-spec.md §1. Every color/radius/shadow used
+   on the redesigned pages (public form, attorney login) traces back to one
+   of these; the not-yet-redesigned dashboard keeps using --background /
+   --foreground above so this addition doesn't change its look. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-newsreader);
+  --font-mono-alma: var(--font-ibm-plex-mono);
+
+  --color-ink-900: #12151c;
+  --color-ink-700: #3a3f4b;
+  --color-ink-400: #7a7f8c;
+  --color-ink-200: #d8d9de;
+  --color-paper-0: #ffffff;
+  --color-paper-50: #f7f6f3;
+  --color-paper-100: #efede8;
+  --color-navy-600: #1f3a5f;
+  --color-navy-700: #16283f;
+  --color-brass-500: #8a6d3b;
+  --color-sage-600: #4b6350;
+  --color-sage-50: #eef2ed;
+  --color-ochre-600: #a9762f;
+  --color-ochre-50: #faf3e7;
+  --color-brick-600: #9b3a2e;
+  --color-brick-50: #fbeeec;
+
+  --radius-input: 6px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 1px 3px rgba(18, 21, 28, 0.06), 0 1px 2px rgba(18, 21, 28, 0.04);
+  --shadow-modal: 0 12px 32px rgba(18, 21, 28, 0.18);
+
+  --text-display-lg: 40px;
+  --text-display-lg--line-height: 1.15;
+  --text-display-lg--font-weight: 500;
+  --text-display-md: 28px;
+  --text-display-md--line-height: 1.2;
+  --text-display-md--font-weight: 500;
+  --text-heading-lg: 22px;
+  --text-heading-lg--line-height: 1.3;
+  --text-heading-lg--font-weight: 600;
+  --text-heading-md: 17px;
+  --text-heading-md--line-height: 1.4;
+  --text-heading-md--font-weight: 600;
+  --text-body-md: 15px;
+  --text-body-md--line-height: 1.6;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 1.5;
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 1.3;
+  --text-label-sm--font-weight: 600;
+  --text-label-sm--letter-spacing: 0.04em;
+  --text-mono-sm: 13px;
+  --text-mono-sm--line-height: 1.4;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,4 +90,30 @@ body {
 .input:focus {
   outline: 2px solid color-mix(in srgb, var(--foreground) 40%, transparent);
   outline-offset: 1px;
+}
+
+/* Field styling for the redesigned pages (ui-design-spec.md §3.2). */
+.field-input {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--color-ink-200);
+  background: var(--color-paper-0);
+  padding: 12px 14px;
+  font-size: var(--text-body-md);
+  color: var(--color-ink-900);
+}
+
+.field-input::placeholder {
+  color: var(--color-ink-400);
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-navy-600);
+  box-shadow: 0 0 0 3px rgba(31, 58, 95, 0.12);
+}
+
+.field-input.field-input-error {
+  border-color: var(--color-brick-600);
 }

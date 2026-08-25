@@ -21,6 +21,7 @@ def _send(payload: dict) -> None:
         logger.warning("RESEND_API_KEY not set; skipping email (%s)", payload.get("subject"))
         return
     try:
+        resend.api_key = RESEND_API_KEY
         resend.Emails.send(payload)
     except Exception:
         logger.exception("Failed to send email via Resend (%s)", payload.get("subject"))

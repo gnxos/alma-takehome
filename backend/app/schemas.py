@@ -68,6 +68,7 @@ class LeadOut(LeadFields):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    reference_number: str
     status: LeadStatus
     resume_filename: str
     created_at: datetime
@@ -77,6 +78,12 @@ class LeadOut(LeadFields):
 class LeadList(BaseModel):
     total: int
     items: list[LeadOut]
+
+
+class LeadCreateResult(LeadOut):
+    # True when this email already had a ticket — the returned lead is the
+    # pre-existing one, not a newly created record.
+    already_exists: bool = False
 
 
 class LoginRequest(BaseModel):
