@@ -1,7 +1,13 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 leads.db
+*.db
+*.sqlite3
 uploads/
 .env
+.env.*
+!.env.example
 .pytest_cache/
+.DS_Store

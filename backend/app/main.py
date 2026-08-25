@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
-from app.database import Base, engine
+from app.database import init_db
 from app.routers import auth, leads
 
-Base.metadata.create_all(bind=engine)
+init_db()
 
 app = FastAPI(title="Lead Management API", version="1.0.0")
 
