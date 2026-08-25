@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic[email]
+python-multipart
+dnspython
+pypdf
+python-docx
+msoffcrypto-tool
+resend
+pyjwt
+pytest
+httpx

@@ -1,0 +1,35 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/leads.db
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - backend_data:/app/data
+      - backend_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Runs in the browser, so it must point at a host-reachable URL,
+        # not the Docker-internal "backend" service name.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_data:
+  backend_uploads:
