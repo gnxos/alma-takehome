@@ -31,6 +31,14 @@ export function listLeads(status?: LeadStatus): Promise<LeadList> {
   });
 }
 
+export function listLeadsByEmail(email: string): Promise<LeadList> {
+  const query = new URLSearchParams({ email }).toString();
+  return apiRequest<LeadList>(`/api/leads/by-email?${query}`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+}
+
 export function getLead(id: string): Promise<Lead> {
   return apiRequest<Lead>(`/api/leads/${id}`, {
     cache: "no-store",

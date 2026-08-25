@@ -63,6 +63,16 @@ def get_by_email(db: Session, email: str) -> Lead | None:
     )
 
 
+def list_by_email(db: Session, email: str) -> list[Lead]:
+    normalized_email = email.strip().lower()
+    return (
+        db.query(Lead)
+        .filter(func.lower(Lead.email) == normalized_email)
+        .order_by(Lead.created_at.desc())
+        .all()
+    )
+
+
 def list_all(
     db: Session,
     *,

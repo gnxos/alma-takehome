@@ -110,6 +110,16 @@ def list_leads(
     return LeadList(total=total, items=items)
 
 
+@router.get("/by-email", response_model=LeadList)
+def list_leads_by_email(
+    email: str,
+    db: Session = Depends(get_db),
+    _attorney_email: str = _require_attorney,
+) -> LeadList:
+    items = lead_repository.list_by_email(db, email)
+    return LeadList(total=len(items), items=items)
+
+
 @router.get("/{lead_id}", response_model=LeadOut)
 def get_lead(
     lead_id: str,

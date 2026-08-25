@@ -64,6 +64,16 @@ def test_get_lead_by_email_returns_most_recent(db_session):
     assert found.id == second.id
 
 
+def test_list_leads_by_email_returns_every_match_newest_first(db_session):
+    first = _create(db_session, email="shared@example.com")
+    _create(db_session, email="different@example.com")
+    second = _create(db_session, email="Shared@Example.com")
+
+    found = lead_repository.list_by_email(db_session, " SHARED@example.com ")
+
+    assert [lead.id for lead in found] == [second.id, first.id]
+
+
 def test_get_lead_by_id_or_reference(db_session):
     lead = _create(db_session)
     assert lead_repository.get_by_id_or_reference(db_session, lead.id).id == lead.id

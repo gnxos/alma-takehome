@@ -33,10 +33,14 @@ function LeadsDashboardContent() {
   const {
     attorneyEmail,
     leads,
+    selectedEmail,
     loading,
+    loadingEmail,
     error,
     updatingId,
     applyUpdate,
+    filterByEmail,
+    clearEmailFilter,
     markReachedOut,
   } = useLeads();
 
@@ -60,6 +64,19 @@ function LeadsDashboardContent() {
     await logout();
     redirectToLogin();
   }
+
+  function handleSelectEmail(email: string) {
+    setFilter("ALL");
+    setViewLeadId(null);
+    void filterByEmail(email);
+  }
+
+  function handleClearEmailFilter() {
+    setFilter("ALL");
+    clearEmailFilter();
+  }
+
+  const isLoading = loading || loadingEmail;
 
   return (
     <div className="min-h-screen bg-paper-50 font-sans">
@@ -87,7 +104,8 @@ function LeadsDashboardContent() {
           <div>
             <h1 className="text-heading-lg text-ink-900">Manage Leads</h1>
             <p className="mt-1 text-body-sm text-ink-400">
-              {leads.length} total &middot; {pendingCount} pending
+              {selectedEmail ? `${leads.length} tickets` : `${leads.length} total`}{" "}
+              &middot; {pendingCount} pending
             </p>
           </div>
           <Link href="/" className={buttonClasses()}>
@@ -95,9 +113,29 @@ function LeadsDashboardContent() {
           </Link>
         </div>
 
-        {!loading && leads.length > 0 && (
+        {selectedEmail && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-navy-600/20 bg-paper-0 px-4 py-3">
+            <p className="text-body-sm text-ink-700">
+              Showing all tickets for{" "}
+              <span className="font-mono-alma text-mono-sm font-medium text-navy-600">
+                {selectedEmail}
+              </span>
+            </p>
+            <button
+              onClick={handleClearEmailFilter}
+              className="text-body-sm font-medium text-navy-600 hover:underline"
+            >
+              Clear email filter
+            </button>
+          </div>
+        )}
+
+        {!isLoading && leads.length > 0 && (
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard label="Total leads" value={leads.length} />
+            <StatCard
+              label={selectedEmail ? "Total tickets" : "Total leads"}
+              value={leads.length}
+            />
             <StatCard label="Pending" value={pendingCount} tone="ochre" />
             <StatCard label="Reached out" value={reachedOutCount} tone="sage" />
           </div>
@@ -125,28 +163,35 @@ function LeadsDashboardContent() {
           </p>
         )}
 
-        {loading && <SkeletonTable />}
+        {isLoading && <SkeletonTable />}
 
-        {!loading && !error && leads.length === 0 && (
+        {!isLoading && !error && leads.length === 0 && (
           <div className="mt-10 text-center">
-            <p className="text-body-md text-ink-700">No applications yet.</p>
+            <p className="text-body-md text-ink-700">
+              {selectedEmail
+                ? "No tickets found for this email."
+                : "No applications yet."}
+            </p>
             <p className="mt-1 text-body-sm text-ink-400">
-              New submissions from the intake form will show up here.
+              {selectedEmail
+                ? "Clear the email filter to return to all leads."
+                : "New submissions from the intake form will show up here."}
             </p>
           </div>
         )}
 
-        {!loading && !error && leads.length > 0 && visibleLeads.length === 0 && (
+        {!isLoading && !error && leads.length > 0 && visibleLeads.length === 0 && (
           <p className="mt-10 text-center text-body-md text-ink-700">
             No leads match this filter.
           </p>
         )}
 
-        {!loading && visibleLeads.length > 0 && (
+        {!isLoading && visibleLeads.length > 0 && (
           <LeadsTable
             leads={visibleLeads}
             updatingId={updatingId}
             onOpen={setViewLeadId}
+            onSelectEmail={handleSelectEmail}
             onMarkReachedOut={markReachedOut}
           />
         )}

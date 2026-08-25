@@ -251,6 +251,27 @@ def test_list_leads_sorted_newest_first(client):
     assert [item["id"] for item in body["items"]] == [second["id"], first["id"]]
 
 
+def test_list_leads_by_email_returns_all_matching_tickets(client):
+    first = create_lead(client, email="shared@example.com").json()
+    second = create_lead(client, email="temporary@example.com").json()
+    create_lead(client, email="different@example.com")
+    updated_second = client.patch(
+        f"/api/leads/{second['id']}",
+        json={"email": "Shared@example.com"},
+    )
+    assert updated_second.status_code == 200
+
+    response = client.get(
+        "/api/leads/by-email",
+        params={"email": " SHARED@EXAMPLE.COM "},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+    assert [item["id"] for item in body["items"]] == [second["id"], first["id"]]
+
+
 def test_update_lead_status(client):
     created = create_lead(client).json()
     response = client.patch(f"/api/leads/{created['id']}", json={"status": "REACHED_OUT"})
