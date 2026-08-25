@@ -20,6 +20,7 @@ def _send(payload: dict) -> None:
         )
         return
     try:
+        resend.api_key = RESEND_API_KEY
         resend.Emails.send(payload)
     except Exception:
         logger.exception(

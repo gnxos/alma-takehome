@@ -4,13 +4,13 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
   const isPending = status === "PENDING";
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+      className={`inline-block whitespace-nowrap rounded-pill px-2 py-0.5 text-label-sm normal-case tracking-normal ${
         isPending
-          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+          ? "bg-ochre-50 text-ochre-600"
+          : "bg-sage-50 text-sage-600"
       }`}
     >
-      {isPending ? "Pending" : "Reached Out"}
+      {isPending ? "Pending" : "Reached out"}
     </span>
   );
 }

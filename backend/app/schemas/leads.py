@@ -66,6 +66,7 @@ class LeadOut(LeadFields):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    reference_number: str
     status: LeadStatus
     resume_filename: str
     created_at: datetime
@@ -75,3 +76,9 @@ class LeadOut(LeadFields):
 class LeadList(BaseModel):
     total: int
     items: list[LeadOut]
+
+
+class LeadCreateResult(LeadOut):
+    """Creation response that identifies an existing duplicate submission."""
+
+    already_exists: bool = False

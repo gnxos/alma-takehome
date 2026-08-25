@@ -7,6 +7,9 @@ services:
       DATABASE_URL: sqlite:////app/data/leads.db
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: http://localhost:3000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Alma <onboarding@resend.dev>}
+      ATTORNEY_EMAIL: ${ATTORNEY_EMAIL:-attorney@alma.example.com}
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads

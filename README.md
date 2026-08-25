@@ -25,6 +25,7 @@ backend/app/
 
 backend/tests/
 ├── api/             # Auth and lead endpoint integration tests
+├── repositories/    # Persistence and reference-collision integration tests
 └── services/        # Email and resume validation unit tests
 
 frontend/src/
@@ -87,16 +88,18 @@ Run tests:
 | ------ | ------------------------ | --------- | ---------------------------------------------- |
 | POST   | `/api/leads`              | Public    | Create a lead (multipart form + resume file)  |
 | GET    | `/api/leads`               | Attorney  | List leads (`status_filter`, `skip`, `limit`) |
-| GET    | `/api/leads/{id}`           | Attorney  | Get a single lead                             |
-| PATCH  | `/api/leads/{id}`           | Attorney  | Update a lead's fields/status                 |
-| GET    | `/api/leads/{id}/resume`     | Attorney  | Download the lead's resume                    |
+| GET    | `/api/leads/{identifier}`   | Attorney  | Get a lead by ID or reference number          |
+| PATCH  | `/api/leads/{identifier}`   | Attorney  | Update a lead's fields/status                 |
+| GET    | `/api/leads/{identifier}/resume` | Attorney | Download the lead's resume                 |
 | POST   | `/login`                    | Public    | Log in, sets an httpOnly session cookie       |
 | POST   | `/logout`                   | Public    | Clears the session cookie                     |
 | GET    | `/auth/me`                   | Attorney  | Current attorney's email                      |
 
 A lead requires `first_name`, `last_name`, `email`, and a single `resume` file
 (`.pdf`, `.doc`, or `.docx`, 100 bytes–10MB). New leads start with status
-`PENDING` and can be transitioned to `REACHED_OUT`.
+`PENDING`, receive an `INT-YYYY-NNNN` reference number, and can be transitioned
+to `REACHED_OUT`. A repeat submission for the same normalized email returns the
+existing lead instead of creating a duplicate ticket.
 
 **Name fields** are trimmed, collapse repeated inner whitespace to a single
 space, must be 2–36 characters, support unicode letters, and reject digits
@@ -150,5 +153,5 @@ Runs at `http://localhost:3000`.
 
 - `/` — public lead submission form
 - `/login` — attorney sign-in
-- `/leads` — internal list of leads, filterable by status (redirects to `/login` if not authenticated)
-- `/leads/[id]` — lead detail, with the ability to mark a lead as reached out (same redirect)
+- `/leads` — internal dashboard with status filters and an in-page lead detail modal (redirects to `/login` if not authenticated)
+- `/leads?ref=INT-YYYY-NNNN` — opens the matching lead directly in the dashboard

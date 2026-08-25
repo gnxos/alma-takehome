@@ -2,19 +2,20 @@ import { API_URL, apiRequest } from "@/lib/api/client";
 import type {
   CreateLeadInput,
   Lead,
+  LeadCreateResult,
   LeadList,
   LeadStatus,
   LeadUpdate,
 } from "./types";
 
-export function createLead(input: CreateLeadInput): Promise<Lead> {
+export function createLead(input: CreateLeadInput): Promise<LeadCreateResult> {
   const formData = new FormData();
   formData.append("first_name", input.first_name);
   formData.append("last_name", input.last_name);
   formData.append("email", input.email);
   formData.append("resume", input.resume);
 
-  return apiRequest<Lead>("/api/leads", {
+  return apiRequest<LeadCreateResult>("/api/leads", {
     method: "POST",
     body: formData,
   });

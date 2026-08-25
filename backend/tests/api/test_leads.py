@@ -1,10 +1,13 @@
 import io
+import re
 
 from app.core import config
 from tests.factories import GARBAGE_BYTES, create_lead, make_docx_bytes, make_pdf_bytes
 
+REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-\d{4}$")
 
-def testcreate_lead_success(client):
+
+def test_create_lead_success(client):
     response = create_lead(client)
     assert response.status_code == 201
     body = response.json()
@@ -12,9 +15,51 @@ def testcreate_lead_success(client):
     assert body["email"] == "ada@example.com"
     assert body["status"] == "PENDING"
     assert body["resume_filename"] == "resume.pdf"
+    assert REFERENCE_NUMBER_RE.match(body["reference_number"])
+    assert body["already_exists"] is False
 
 
-def testcreate_lead_triggers_email_notifications(client, monkeypatch):
+def test_create_lead_returns_existing_ticket_for_duplicate_email(client):
+    first = create_lead(client, email="dupe@example.com").json()
+
+    second_response = create_lead(
+        client, email="dupe@example.com", first_name="Someone", last_name="Else"
+    )
+
+    assert second_response.status_code == 200
+    second = second_response.json()
+    assert second["already_exists"] is True
+    assert second["id"] == first["id"]
+    assert second["reference_number"] == first["reference_number"]
+    # The original record is untouched — not overwritten by the second submission.
+    assert second["first_name"] == "Ada"
+
+
+def test_get_lead_by_reference_number(client):
+    created = create_lead(client).json()
+    response = client.get(f"/api/leads/{created['reference_number']}")
+    assert response.status_code == 200
+    assert response.json()["id"] == created["id"]
+
+
+def test_update_lead_by_reference_number(client):
+    created = create_lead(client).json()
+    response = client.patch(
+        f"/api/leads/{created['reference_number']}", json={"status": "REACHED_OUT"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "REACHED_OUT"
+
+
+def test_download_resume_by_reference_number(client):
+    resume_bytes = make_pdf_bytes()
+    created = create_lead(client, resume_bytes=resume_bytes).json()
+    response = client.get(f"/api/leads/{created['reference_number']}/resume")
+    assert response.status_code == 200
+    assert response.content == resume_bytes
+
+
+def test_create_lead_triggers_email_notifications(client, monkeypatch):
     from app.services import email_notifications
 
     notified = []
@@ -31,7 +76,7 @@ def testcreate_lead_triggers_email_notifications(client, monkeypatch):
     assert notified[0].email == "ada@example.com"
 
 
-def testcreate_lead_accepts_docx(client):
+def test_create_lead_accepts_docx(client):
     response = create_lead(
         client,
         resume_bytes=make_docx_bytes(),
@@ -41,7 +86,7 @@ def testcreate_lead_accepts_docx(client):
     assert response.status_code == 201
 
 
-def testcreate_lead_rejects_bad_extension(client):
+def test_create_lead_rejects_bad_extension(client):
     files = {"resume": ("resume.exe", io.BytesIO(b"nope"), "application/octet-stream")}
     response = client.post(
         "/api/leads",
@@ -51,37 +96,37 @@ def testcreate_lead_rejects_bad_extension(client):
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_invalid_email(client):
+def test_create_lead_rejects_invalid_email(client):
     response = create_lead(client, email="not-an-email")
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_name_too_short(client):
+def test_create_lead_rejects_name_too_short(client):
     response = create_lead(client, first_name="A")
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_name_too_long(client):
+def test_create_lead_rejects_name_too_long(client):
     response = create_lead(client, first_name="A" * 37)
     assert response.status_code == 422
 
 
-def testcreate_lead_allows_name_at_length_boundaries(client):
+def test_create_lead_allows_name_at_length_boundaries(client):
     response = create_lead(client, first_name="Al", last_name="B" * 36)
     assert response.status_code == 201
 
 
-def testcreate_lead_rejects_digits_in_name(client):
+def test_create_lead_rejects_digits_in_name(client):
     response = create_lead(client, first_name="Jane3")
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_blank_name(client):
+def test_create_lead_rejects_blank_name(client):
     response = create_lead(client, first_name="   ")
     assert response.status_code == 422
 
 
-def testcreate_lead_trims_and_collapses_name_spacing(client):
+def test_create_lead_trims_and_collapses_name_spacing(client):
     response = create_lead(
         client, first_name="  gn   teja  ", last_name="  van   Der  Berg "
     )
@@ -91,7 +136,7 @@ def testcreate_lead_trims_and_collapses_name_spacing(client):
     assert body["last_name"] == "van Der Berg"
 
 
-def testcreate_lead_supports_unicode_names(client):
+def test_create_lead_supports_unicode_names(client):
     response = create_lead(client, first_name="Müller", last_name="日本語")
     assert response.status_code == 201
     body = response.json()
@@ -99,24 +144,24 @@ def testcreate_lead_supports_unicode_names(client):
     assert body["last_name"] == "日本語"
 
 
-def testcreate_lead_trims_and_lowercases_email_domain(client):
+def test_create_lead_trims_and_lowercases_email_domain(client):
     response = create_lead(client, email="  Ada.Lovelace@EXAMPLE.COM  ")
     assert response.status_code == 201
     assert response.json()["email"] == "Ada.Lovelace@example.com"
 
 
-def testcreate_lead_rejects_email_too_long(client):
+def test_create_lead_rejects_email_too_long(client):
     long_local_part = "a" * 90
     response = create_lead(client, email=f"{long_local_part}@example.com")
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_email_with_internal_space(client):
+def test_create_lead_rejects_email_with_internal_space(client):
     response = create_lead(client, email="ada lovelace@example.com")
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_domain_without_mx_or_a_record(client, monkeypatch):
+def test_create_lead_rejects_domain_without_mx_or_a_record(client, monkeypatch):
     from app.services import email_validation
 
     monkeypatch.setattr(email_validation, "domain_has_mail_exchanger", lambda domain: False)
@@ -124,28 +169,28 @@ def testcreate_lead_rejects_domain_without_mx_or_a_record(client, monkeypatch):
     assert response.status_code == 422
 
 
-def testcreate_lead_rejects_empty_resume(client):
+def test_create_lead_rejects_empty_resume(client):
     response = create_lead(client, resume_bytes=b"")
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_resume_below_min_size(client):
+def test_create_lead_rejects_resume_below_min_size(client):
     response = create_lead(client, resume_bytes=b"%PDF-1.4", resume_filename="tiny.pdf")
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_resume_above_max_size(client):
+def test_create_lead_rejects_resume_above_max_size(client):
     oversized = b"0" * (config.MAX_RESUME_SIZE_BYTES + 1)
     response = create_lead(client, resume_bytes=oversized, resume_filename="huge.pdf")
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_corrupted_pdf(client):
+def test_create_lead_rejects_corrupted_pdf(client):
     response = create_lead(client, resume_bytes=GARBAGE_BYTES, resume_filename="fake.pdf")
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_password_protected_pdf(client):
+def test_create_lead_rejects_password_protected_pdf(client):
     response = create_lead(
         client,
         resume_bytes=make_pdf_bytes(password="secret"),
@@ -155,12 +200,12 @@ def testcreate_lead_rejects_password_protected_pdf(client):
     assert "password" in response.json()["detail"].lower()
 
 
-def testcreate_lead_rejects_corrupted_docx(client):
+def test_create_lead_rejects_corrupted_docx(client):
     response = create_lead(client, resume_bytes=GARBAGE_BYTES, resume_filename="fake.docx")
     assert response.status_code == 400
 
 
-def testcreate_lead_rejects_password_protected_docx(client, monkeypatch):
+def test_create_lead_rejects_password_protected_docx(client, monkeypatch):
     from app.services import resume_validation
 
     monkeypatch.setattr(resume_validation, "is_office_file_encrypted", lambda f: True)
@@ -173,7 +218,7 @@ def testcreate_lead_rejects_password_protected_docx(client, monkeypatch):
     assert "password" in response.json()["detail"].lower()
 
 
-def testcreate_lead_rejects_multiple_resume_files(client):
+def test_create_lead_rejects_multiple_resume_files(client):
     data = {"first_name": "Two", "last_name": "Files", "email": "two@example.com"}
     pdf_bytes = make_pdf_bytes()
     files = [

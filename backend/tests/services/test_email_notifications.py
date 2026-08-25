@@ -55,6 +55,33 @@ def test_email_payloads_escape_html_in_names():
     assert "&lt;script&gt;" in payload["html"]
 
 
+def test_send_invokes_resend_when_api_key_present(monkeypatch):
+    called_with = []
+    monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "test-api-key")
+    monkeypatch.setattr(
+        email_notifications.resend.Emails, "send", lambda payload: called_with.append(payload)
+    )
+
+    test_payload = {
+        "from": email_notifications.EMAIL_FROM,
+        "to": ["ada@example.com"],
+        "subject": "Test",
+    }
+    email_notifications._send(test_payload)
+
+    assert len(called_with) == 1
+    assert called_with[0] == test_payload
+    assert email_notifications.resend.api_key == "test-api-key"
+
+
+def test_email_payloads_include_configured_sender():
+    lead = _lead()
+    prospect = email_notifications._prospect_email_payload(lead)
+    attorney = email_notifications._attorney_email_payload(lead)
+    assert prospect["from"] == email_notifications.EMAIL_FROM
+    assert attorney["from"] == email_notifications.EMAIL_FROM
+
+
 def test_send_skips_without_api_key(monkeypatch, caplog):
     monkeypatch.setattr(email_notifications, "RESEND_API_KEY", "")
     with caplog.at_level("WARNING"):

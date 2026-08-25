@@ -8,6 +8,7 @@ from fastapi import (
     Form,
     HTTPException,
     Request,
+    Response,
     UploadFile,
     status,
 )
@@ -17,9 +18,15 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_current_attorney_email
 from app.database.session import get_db
-from app.models.lead import LeadStatus
+from app.models.lead import Lead, LeadStatus
 from app.repositories import leads as lead_repository
-from app.schemas.leads import LeadBase, LeadList, LeadOut, LeadUpdate
+from app.schemas.leads import (
+    LeadBase,
+    LeadCreateResult,
+    LeadList,
+    LeadOut,
+    LeadUpdate,
+)
 from app.services import email_notifications
 from app.services.resume_storage import ResumeStorageError, store_resume
 
@@ -29,16 +36,21 @@ router = APIRouter(prefix="/api/leads", tags=["leads"])
 _require_attorney = Depends(get_current_attorney_email)
 
 
-@router.post("", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=LeadCreateResult,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_lead(
     request: Request,
+    response: Response,
     background_tasks: BackgroundTasks,
     first_name: str = Form(...),
     last_name: str = Form(...),
     email: str = Form(...),
     resume: UploadFile = File(...),
     db: Session = Depends(get_db),
-):
+) -> LeadCreateResult:
     form = await request.form()
     if len(form.getlist("resume")) > 1:
         raise HTTPException(
@@ -53,6 +65,13 @@ async def create_lead(
             status_code=422,
             detail=exc.errors(include_context=False, include_url=False),
         ) from exc
+
+    existing = lead_repository.get_by_email(db, validated.email)
+    if existing is not None:
+        response.status_code = status.HTTP_200_OK
+        result = LeadCreateResult.model_validate(existing)
+        result.already_exists = True
+        return result
 
     try:
         stored_resume = await store_resume(resume)
@@ -71,7 +90,7 @@ async def create_lead(
         resume_path=str(stored_resume.path),
     )
     background_tasks.add_task(email_notifications.send_lead_notifications, lead)
-    return lead
+    return LeadCreateResult.model_validate(lead)
 
 
 @router.get("", response_model=LeadList)
@@ -96,7 +115,7 @@ def get_lead(
     lead_id: str,
     db: Session = Depends(get_db),
     _attorney_email: str = _require_attorney,
-):
+) -> Lead:
     return _get_lead_or_404(db, lead_id)
 
 
@@ -106,7 +125,7 @@ def update_lead(
     changes: LeadUpdate,
     db: Session = Depends(get_db),
     _attorney_email: str = _require_attorney,
-):
+) -> Lead:
     lead = _get_lead_or_404(db, lead_id)
     return lead_repository.update(db, lead, changes)
 
@@ -124,8 +143,8 @@ def download_resume(
     return FileResponse(path, filename=lead.resume_filename)
 
 
-def _get_lead_or_404(db: Session, lead_id: str):
-    lead = lead_repository.get(db, lead_id)
+def _get_lead_or_404(db: Session, lead_id: str) -> Lead:
+    lead = lead_repository.get_by_id_or_reference(db, lead_id)
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead

@@ -9,5 +9,6 @@ python-docx
 msoffcrypto-tool
 resend
 pyjwt
+python-dotenv
 pytest
 httpx

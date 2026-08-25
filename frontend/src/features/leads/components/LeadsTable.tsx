@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { Button } from "@/components/ui/Button";
+import { DownloadIcon, EyeIcon } from "@/components/ui/icons";
 import { resumeUrl } from "../api";
 import type { Lead } from "../types";
 import { StatusBadge } from "./StatusBadge";
@@ -8,76 +7,117 @@ import { StatusBadge } from "./StatusBadge";
 interface LeadsTableProps {
   leads: Lead[];
   updatingId: string | null;
+  onOpen: (leadId: string) => void;
   onMarkReachedOut: (lead: Lead) => void;
 }
 
 export function LeadsTable({
   leads,
   updatingId,
+  onOpen,
   onMarkReachedOut,
 }: LeadsTableProps) {
   return (
-    <div className="mt-6 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-black/5 dark:bg-white/10">
-          <tr>
-            <th className="px-4 py-2 font-medium">Name</th>
-            <th className="px-4 py-2 font-medium">Email</th>
-            <th className="px-4 py-2 font-medium">Resume</th>
-            <th className="px-4 py-2 font-medium">Status</th>
-            <th className="px-4 py-2 font-medium">Submitted</th>
-            <th className="px-4 py-2 font-medium">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((lead) => (
-            <tr
-              key={lead.id}
-              className="border-t border-black/10 dark:border-white/10"
-            >
-              <td className="whitespace-nowrap px-4 py-2">
-                <Link href={`/leads/${lead.id}`} className="hover:underline">
-                  {lead.first_name} {lead.last_name}
-                </Link>
-              </td>
-              <td className="px-4 py-2">{lead.email}</td>
-              <td className="px-4 py-2">
-                <a
-                  href={resumeUrl(lead.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  {lead.resume_filename}
-                </a>
-              </td>
-              <td className="px-4 py-2">
-                <StatusBadge status={lead.status} />
-              </td>
-              <td className="whitespace-nowrap px-4 py-2 text-black/60 dark:text-white/60">
-                {new Date(lead.created_at).toLocaleDateString()}
-              </td>
-              <td className="whitespace-nowrap px-4 py-2">
-                {lead.status === "PENDING" ? (
-                  <Button
-                    className="px-3 py-1 text-xs"
-                    disabled={updatingId === lead.id}
-                    onClick={() => onMarkReachedOut(lead)}
-                  >
-                    {updatingId === lead.id
-                      ? "Updating..."
-                      : "Mark Reached Out"}
-                  </Button>
-                ) : (
-                  <span className="text-xs text-black/40 dark:text-white/40">
-                    —
-                  </span>
-                )}
-              </td>
+    <>
+      <div className="mt-6 flex flex-col gap-3 sm:hidden">
+        {leads.map((lead) => (
+          <button
+            key={lead.id}
+            onClick={() => onOpen(lead.id)}
+            className="rounded-card bg-paper-0 p-4 text-left shadow-card"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-heading-md text-ink-900">
+                {lead.first_name} {lead.last_name}
+              </span>
+              <StatusBadge status={lead.status} />
+            </div>
+            <p className="mt-1 font-mono-alma text-mono-sm text-brass-500">
+              {lead.reference_number}
+            </p>
+            <p className="mt-1 text-body-sm text-ink-400">
+              {lead.email} &middot;{" "}
+              {new Date(lead.created_at).toLocaleDateString()}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto rounded-card border border-paper-100 sm:block">
+        <table className="w-full text-left text-body-md">
+          <thead className="bg-paper-100">
+            <tr>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Name</th>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Email</th>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Resume</th>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Status</th>
+              <th className="h-11 px-4 text-label-sm text-ink-700">
+                Submitted
+              </th>
+              <th className="h-11 px-4 text-label-sm text-ink-700">Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {leads.map((lead) => (
+              <tr
+                key={lead.id}
+                onClick={() => onOpen(lead.id)}
+                className="h-14 cursor-pointer border-t border-paper-100 hover:bg-paper-50"
+              >
+                <td className="whitespace-nowrap px-4">
+                  <span className="inline-flex items-center gap-1.5 text-ink-900">
+                    {lead.first_name} {lead.last_name}
+                    <EyeIcon className="size-3.5 text-ink-400" />
+                  </span>
+                  <p className="font-mono-alma text-mono-sm text-brass-500">
+                    {lead.reference_number}
+                  </p>
+                </td>
+                <td className="px-4 font-mono-alma text-mono-sm text-ink-700">
+                  {lead.email}
+                </td>
+                <td className="px-4" onClick={(event) => event.stopPropagation()}>
+                  <a
+                    href={resumeUrl(lead.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-ink-700 hover:underline"
+                    title="Download resume"
+                  >
+                    {lead.resume_filename}
+                    <DownloadIcon className="size-3.5 text-ink-400" />
+                  </a>
+                </td>
+                <td className="whitespace-nowrap px-4">
+                  <StatusBadge status={lead.status} />
+                </td>
+                <td className="whitespace-nowrap px-4 text-ink-400">
+                  {new Date(lead.created_at).toLocaleDateString()}
+                </td>
+                <td
+                  className="whitespace-nowrap px-4"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {lead.status === "PENDING" ? (
+                    <Button
+                      variant="secondary"
+                      className="!h-8 !px-3 !text-body-sm"
+                      disabled={updatingId === lead.id}
+                      onClick={() => onMarkReachedOut(lead)}
+                    >
+                      {updatingId === lead.id
+                        ? "Updating..."
+                        : "Mark Reached Out"}
+                    </Button>
+                  ) : (
+                    <span className="text-body-sm text-ink-400">&mdash;</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

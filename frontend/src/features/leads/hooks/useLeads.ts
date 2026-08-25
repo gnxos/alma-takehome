@@ -1,37 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
+import {
+  getCurrentAttorney,
+  redirectToLogin,
+} from "@/features/auth/api";
 import { UnauthorizedError } from "@/lib/api/client";
 import { listLeads, updateLead } from "../api";
-import type { Lead, LeadFilter } from "../types";
+import type { Lead } from "../types";
 
 export function useLeads() {
-  const router = useRouter();
-  const [filter, setFilter] = useState<LeadFilter>("ALL");
+  const [attorneyEmail, setAttorneyEmail] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    getCurrentAttorney()
+      .then((attorney) => setAttorneyEmail(attorney.email))
+      .catch(() => {});
+  }, []);
 
-    listLeads(filter === "ALL" ? undefined : filter)
+  useEffect(() => {
+    let cancelled = false;
+    listLeads()
       .then((data) => {
         if (!cancelled) setLeads(data.items);
       })
       .catch((requestError: unknown) => {
         if (cancelled) return;
         if (requestError instanceof UnauthorizedError) {
-          router.push("/login");
+          redirectToLogin();
           return;
         }
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "Failed to load leads."
+            : "Couldn't load leads."
         );
       })
       .finally(() => {
@@ -41,27 +48,22 @@ export function useLeads() {
     return () => {
       cancelled = true;
     };
-  }, [filter, router]);
+  }, []);
 
-  function selectFilter(nextFilter: LeadFilter) {
-    setLoading(true);
-    setError(null);
-    setFilter(nextFilter);
+  function applyUpdate(updated: Lead) {
+    setLeads((current) =>
+      current.map((lead) => (lead.id === updated.id ? updated : lead))
+    );
   }
 
   async function markReachedOut(lead: Lead) {
     setUpdatingId(lead.id);
     setError(null);
     try {
-      const updated = await updateLead(lead.id, { status: "REACHED_OUT" });
-      setLeads((current) =>
-        filter === "PENDING"
-          ? current.filter((item) => item.id !== lead.id)
-          : current.map((item) => (item.id === lead.id ? updated : item))
-      );
+      applyUpdate(await updateLead(lead.id, { status: "REACHED_OUT" }));
     } catch (requestError) {
       if (requestError instanceof UnauthorizedError) {
-        router.push("/login");
+        redirectToLogin();
         return;
       }
       setError(
@@ -75,12 +77,12 @@ export function useLeads() {
   }
 
   return {
-    filter,
+    attorneyEmail,
     leads,
     loading,
     error,
     updatingId,
-    selectFilter,
+    applyUpdate,
     markReachedOut,
   };
 }
