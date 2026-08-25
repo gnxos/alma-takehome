@@ -1,0 +1,5 @@
+{
+  "subject": "We received your information",
+  "text": "Hi {first_name},\n\nThank you for contacting us. We received your information and resume.\n{ticket_ref_text}Our team will review your submission and contact you if needed.",
+  "html": "<div style=\"font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937; line-height: 1.5;\"><p>Hi {first_name_html},</p><p>Thank you for contacting us. We received your information and resume.</p>{ticket_ref_html}<p>Our team will review your submission and contact you if needed.</p></div>"
+}

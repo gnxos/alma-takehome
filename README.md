@@ -7,6 +7,10 @@ leads.
 - `backend/` — FastAPI + SQLAlchemy (SQLite) API
 - `frontend/` — Next.js (App Router, TypeScript, Tailwind) web app
 
+> 📖 **Setup Guide**: See [LOCAL_RUN_GUIDE.md](./LOCAL_RUN_GUIDE.md)  
+> 📐 **Design Decisions & Architecture**: See [DESIGN.md](./DESIGN.md)  
+> 🤖 **Coding Agent Usage & Attribution**: See [AGENT_USAGE.md](./AGENT_USAGE.md)
+
 ## Project structure
 
 The application is organized by responsibility so framework entry points stay
@@ -51,7 +55,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (docs at `/docs`)
-- Mailpit: `http://localhost:8025` (local email inbox; SMTP on port `1025`)
+- Mailpit (caught email inbox): `http://localhost:8025`
 
 The backend's SQLite database and uploaded resumes persist in named Docker
 volumes (`backend_data`, `backend_uploads`) across restarts.
@@ -76,9 +80,9 @@ python3 -m venv venv
 The API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 
 Config is read from environment variables (see `.env.example`): `DATABASE_URL`,
-`UPLOAD_DIR`, `CORS_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
-`FRONTEND_URL`, `EMAIL_BACKEND`, `SMTP_HOST`, `SMTP_PORT`,
-`ATTORNEY_PASSWORD`, and `JWT_SECRET`.
+`UPLOAD_DIR`, `CORS_ORIGINS`, `EMAIL_BACKEND`, `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_TIMEOUT_SECONDS`, `RESEND_API_KEY`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
+`FRONTEND_URL`, `ATTORNEY_PASSWORD`, `JWT_SECRET`.
 
 Run tests:
 
@@ -101,9 +105,11 @@ Run tests:
 
 A lead requires `first_name`, `last_name`, `email`, and a single `resume` file
 (`.pdf`, `.doc`, or `.docx`, 100 bytes–10MB). New leads start with status
-`PENDING`, receive an `INT-YYYY-NNNN` reference number, and can be transitioned
-to `REACHED_OUT`. A repeat submission for the same normalized email returns the
-existing lead instead of creating a duplicate ticket.
+`PENDING`, receive an `INT-YYYY-XXXXXX` reference number, and can be transitioned
+to `REACHED_OUT`. A repeat submission for the same normalized email while a
+ticket is still `PENDING` returns that existing ticket instead of creating a
+duplicate; once a lead has been marked `REACHED_OUT`, a new submission opens
+a fresh ticket.
 
 **Name fields** are trimmed, collapse repeated inner whitespace to a single
 space, must be 2–36 characters, support unicode letters, and reject digits
@@ -121,63 +127,23 @@ container structure. Only one file may be uploaded per submission.
 
 ### Email notifications
 
-After a lead and its resume have been validated, stored, and committed, a
-FastAPI `BackgroundTask` attempts two independent messages:
+On lead creation, a confirmation email is sent to the prospect (including their ticket
+reference number) and a notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both over
+SMTP. Sending happens in a FastAPI `BackgroundTask` *after* the response is
+returned, so a slow or unreachable mail server never delays lead creation —
+a failed send is logged and swallowed, never raised.
 
-1. `We received your information` goes to the validated prospect address.
-2. `New lead: {first_name} {last_name}` goes to `ATTORNEY_EMAIL` and links to
-   `FRONTEND_URL/admin/leads/{lead_id}`.
+Locally (and via `docker compose up`), emails are sent to
+[Mailpit](https://mailpit.axllent.org), a local SMTP catch-all with a web UI
+at `http://localhost:8025` — every email the app sends shows up there
+instead of going anywhere real, so you can open the dashboard and see the
+prospect confirmation and attorney notification for each submission. Outside
+Docker, run `docker run -d -p 8025:8025 -p 1025:1025 axllent/mailpit` (or
+the standalone binary) alongside the backend.
 
-Neither email attaches the resume. The attorney downloads it from the
-authenticated dashboard. If either delivery fails, the other is still
-attempted and the committed lead remains `PENDING`; provider errors are logged
-without logging the API key.
-
-Set `EMAIL_BACKEND=resend` and configure `RESEND_API_KEY` plus a verified
-`EMAIL_FROM` address for production. The implementation uses Resend's Python
-SDK. If the Resend key is missing, the service logs a safe
-`DEV EMAIL - NOT DELIVERED` preview instead of crashing.
-
-#### Local email testing with Mailpit
-
-Mailpit captures both messages locally and never sends them to the internet.
-It is included in `docker-compose.yml` and uses the standard SMTP port `1025`
-and web UI port `8025`.
-
-For the full Docker stack:
-
-```bash
-docker compose up --build
-```
-
-For a backend running directly on port `8001`, start only Mailpit and place
-these non-secret values in the ignored `backend/.env` file:
-
-```bash
-docker compose up -d --wait mailpit
-
-EMAIL_BACKEND=smtp
-SMTP_HOST=localhost
-SMTP_PORT=1025
-EMAIL_FROM=Lead Team <leads@example.test>
-ATTORNEY_EMAIL=attorney@example.com
-FRONTEND_URL=http://localhost:3000
-RESEND_API_KEY=
-```
-
-Then run:
-
-```bash
-cd backend
-./.venv/bin/uvicorn app.main:app --reload --port 8001
-```
-
-Set `NEXT_PUBLIC_API_URL=http://localhost:8001` in `frontend/.env.local`, run
-the frontend on port `3000`, submit a valid lead, and inspect both captured
-messages at `http://localhost:8025`. The attorney link should redirect an
-unauthenticated browser to `/login`; after sign-in it opens that lead in the
-internal dashboard. Incorrect SMTP/Resend settings must not change or duplicate
-the stored lead.
+For production, point `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
+`SMTP_PASSWORD`/`SMTP_USE_TLS` at a real relay — e.g. Resend's SMTP relay
+(`smtp.resend.com:587`, `SMTP_USE_TLS=true`, an API key as the password).
 
 ### Attorney authentication
 
@@ -205,6 +171,5 @@ Runs at `http://localhost:3000`.
 
 - `/` — public lead submission form
 - `/login` — attorney sign-in
-- `/leads` — internal dashboard with status filters and a lead detail drawer (redirects to `/login` if not authenticated)
-- `/leads?ref=INT-YYYY-NNNN` — opens the matching lead directly in the dashboard
-- `/admin/leads/{lead_id}` — protected email entry point for a specific lead
+- `/leads` — internal dashboard with status filters and an in-page lead detail view (redirects to `/login` if not authenticated)
+- `/leads?ref=INT-YYYY-XXXXXX` — opens the matching lead directly in the dashboard

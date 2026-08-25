@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, type ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -27,7 +28,10 @@ export function LeadSubmissionForm() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
   const [resume, setResume] = useState<File | null>(null);
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +75,18 @@ export function LeadSubmissionForm() {
     return validationError;
   }
 
+  function handleReset() {
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhone("");
+    setMessage("");
+    setResume(null);
+    setFieldErrors({});
+    setError(null);
+    setResult(null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -78,6 +94,7 @@ export function LeadSubmissionForm() {
     const lastNameError = validateLastName(lastName);
     const emailError = validateEmailField(email);
     const resumeError = validateResume(resume);
+
     if (firstNameError || lastNameError || emailError || resumeError || !resume) {
       return;
     }
@@ -85,14 +102,15 @@ export function LeadSubmissionForm() {
     setSubmitting(true);
     setError(null);
     try {
-      setResult(
-        await createLead({
-          first_name: normalizeName(firstName),
-          last_name: normalizeName(lastName),
-          email: normalizeEmail(email),
-          resume,
-        })
-      );
+      const response = await createLead({
+        first_name: normalizeName(firstName),
+        last_name: normalizeName(lastName),
+        email: normalizeEmail(email),
+        resume,
+        phone: phone.trim() || undefined,
+        message: message.trim() || undefined,
+      });
+      setResult(response);
     } catch {
       setError(
         "Something went wrong on our end — your information hasn't been sent yet. Try again."
@@ -104,25 +122,42 @@ export function LeadSubmissionForm() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper-50 font-sans lg:flex-row">
-      <div className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:w-[440px] lg:shrink-0 lg:bg-paper-100 lg:px-16 lg:py-16">
-        <span className="text-heading-md font-bold tracking-tight text-ink-900">
-          alma
-        </span>
-        <span className="mt-10 text-label-sm text-brass-500">Get started</span>
-        <h1 className="mt-2 text-display-lg font-serif text-ink-900">
-          Tell us about your case.
-        </h1>
-        <p className="mt-4 text-body-md text-ink-700">
-          An attorney will review your information and follow up by email.
-        </p>
+      {/* Left Sidebar */}
+      <div className="flex flex-col justify-between px-6 py-12 sm:px-10 lg:w-[440px] lg:shrink-0 lg:bg-paper-100 lg:px-16 lg:py-16">
+        <div>
+          <span className="text-heading-md font-bold tracking-tight text-ink-900">
+            alma
+          </span>
+          <div className="mt-12">
+            <span className="text-label-sm font-semibold uppercase tracking-wider text-brass-500">
+              Get started
+            </span>
+            <h1 className="mt-2 text-display-lg font-serif text-ink-900">
+              Tell us about your case.
+            </h1>
+            <p className="mt-4 text-body-md text-ink-700">
+              An attorney will review your information and follow up by email.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-6 border-t border-ink-200/50">
+          <Link
+            href="/login"
+            className="text-body-sm font-medium text-ink-700 hover:text-ink-900 underline"
+          >
+            Attorney Login &rarr;
+          </Link>
+        </div>
       </div>
 
+      {/* Right Content Area */}
       <div className="flex flex-1 items-start justify-center px-6 py-10 sm:px-10 lg:items-center lg:py-16">
-        <div className="w-full max-w-[480px]">
+        <div className="w-full max-w-[560px]">
           {result ? (
-            <SubmissionResult result={result} />
+            <SubmissionResult result={result} onReset={handleReset} />
           ) : (
-            <div className="rounded-card bg-paper-0 p-5 shadow-card sm:p-8">
+            <div className="rounded-card bg-paper-0 p-6 shadow-card sm:p-10 border border-paper-100">
               {error && (
                 <p className="mb-6 rounded-input bg-brick-50 px-4 py-3 text-body-sm text-brick-600">
                   {error}
@@ -134,47 +169,55 @@ export function LeadSubmissionForm() {
                 noValidate
                 className="flex flex-col gap-5"
               >
-                <Field label="First name" error={fieldErrors.firstName}>
-                  <input
-                    maxLength={NAME_MAX_LENGTH}
-                    value={firstName}
-                    onChange={(event) => {
-                      setFirstName(event.target.value);
-                      if (fieldErrors.firstName) {
-                        setFieldErrors((current) => ({
-                          ...current,
-                          firstName: null,
-                        }));
-                      }
-                    }}
-                    onBlur={(event) => validateFirstName(event.target.value)}
-                    className={`field-input ${
-                      fieldErrors.firstName ? "field-input-error" : ""
-                    }`}
-                  />
-                </Field>
-                <Field label="Last name" error={fieldErrors.lastName}>
-                  <input
-                    maxLength={NAME_MAX_LENGTH}
-                    value={lastName}
-                    onChange={(event) => {
-                      setLastName(event.target.value);
-                      if (fieldErrors.lastName) {
-                        setFieldErrors((current) => ({
-                          ...current,
-                          lastName: null,
-                        }));
-                      }
-                    }}
-                    onBlur={(event) => validateLastName(event.target.value)}
-                    className={`field-input ${
-                      fieldErrors.lastName ? "field-input-error" : ""
-                    }`}
-                  />
-                </Field>
-                <Field label="Email" error={fieldErrors.email}>
+                {/* First name & Last name */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="First name*" error={fieldErrors.firstName}>
+                    <input
+                      placeholder="First name"
+                      maxLength={NAME_MAX_LENGTH}
+                      value={firstName}
+                      onChange={(event) => {
+                        setFirstName(event.target.value);
+                        if (fieldErrors.firstName) {
+                          setFieldErrors((current) => ({
+                            ...current,
+                            firstName: null,
+                          }));
+                        }
+                      }}
+                      onBlur={(event) => validateFirstName(event.target.value)}
+                      className={`field-input ${
+                        fieldErrors.firstName ? "field-input-error" : ""
+                      }`}
+                    />
+                  </Field>
+                  <Field label="Last name*" error={fieldErrors.lastName}>
+                    <input
+                      placeholder="Last name"
+                      maxLength={NAME_MAX_LENGTH}
+                      value={lastName}
+                      onChange={(event) => {
+                        setLastName(event.target.value);
+                        if (fieldErrors.lastName) {
+                          setFieldErrors((current) => ({
+                            ...current,
+                            lastName: null,
+                          }));
+                        }
+                      }}
+                      onBlur={(event) => validateLastName(event.target.value)}
+                      className={`field-input ${
+                        fieldErrors.lastName ? "field-input-error" : ""
+                      }`}
+                    />
+                  </Field>
+                </div>
+
+                {/* Email */}
+                <Field label="Email*" error={fieldErrors.email}>
                   <input
                     type="email"
+                    placeholder="Email address"
                     maxLength={EMAIL_MAX_LENGTH}
                     value={email}
                     onChange={(event) => {
@@ -192,7 +235,20 @@ export function LeadSubmissionForm() {
                     }`}
                   />
                 </Field>
-                <Field label="Resume / CV">
+
+                {/* Phone number (optional) */}
+                <Field label="Phone number (optional)">
+                  <input
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    className="field-input"
+                  />
+                </Field>
+
+                {/* Resume / CV */}
+                <Field label="Resume / CV*">
                   <FileUpload
                     file={resume}
                     accept=".pdf,.doc,.docx"
@@ -204,6 +260,18 @@ export function LeadSubmissionForm() {
                   />
                 </Field>
 
+                {/* Message (optional) */}
+                <Field label="Message (optional)">
+                  <textarea
+                    rows={3}
+                    placeholder="Share any additional details, timeline considerations, or questions..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    className="field-textarea"
+                  />
+                </Field>
+
+                {/* Submit CTA */}
                 <Button
                   type="submit"
                   fullWidth
@@ -215,9 +283,14 @@ export function LeadSubmissionForm() {
 
                 <p className="text-center text-body-sm text-ink-400">
                   By submitting, you agree to our{" "}
-                  <span className="text-ink-700 underline">Terms of Service</span>
-                  {" "}and{" "}
-                  <span className="text-ink-700 underline">Privacy Policy</span>.
+                  <span className="text-ink-700 underline cursor-pointer">
+                    Terms of Service
+                  </span>{" "}
+                  and{" "}
+                  <span className="text-ink-700 underline cursor-pointer">
+                    Privacy Policy
+                  </span>
+                  .
                 </p>
               </form>
             </div>
@@ -228,9 +301,15 @@ export function LeadSubmissionForm() {
   );
 }
 
-function SubmissionResult({ result }: { result: LeadCreateResult }) {
+function SubmissionResult({
+  result,
+  onReset,
+}: {
+  result: LeadCreateResult;
+  onReset: () => void;
+}) {
   return (
-    <div className="rounded-card bg-paper-0 p-8 shadow-card">
+    <div className="rounded-card bg-paper-0 p-8 shadow-card border border-paper-100">
       <h2 className="text-display-md font-serif text-ink-900">
         {result.already_exists
           ? "You already have an application in progress."
@@ -242,8 +321,13 @@ function SubmissionResult({ result }: { result: LeadCreateResult }) {
       <p className="mt-4 text-body-md text-ink-700">
         {result.already_exists
           ? `We found an existing application for ${result.email}. An attorney will reach out from here — no need to submit again.`
-          : `We've sent a copy to ${result.email}. An attorney will reach out from here.`}
+          : `We've sent a copy to ${result.email}. An attorney will review your information and follow up by email.`}
       </p>
+      <div className="mt-8 flex gap-3">
+        <Button variant="secondary" onClick={onReset}>
+          Submit another application
+        </Button>
+      </div>
     </div>
   );
 }

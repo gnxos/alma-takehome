@@ -4,7 +4,7 @@ import re
 from app.core import config
 from tests.factories import GARBAGE_BYTES, create_lead, make_docx_bytes, make_pdf_bytes
 
-REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-\d{4}$")
+REFERENCE_NUMBER_RE = re.compile(r"^INT-\d{4}-[0-9A-HJ-NP-Z]{6}$")
 
 
 def test_create_lead_success(client):
@@ -107,6 +107,32 @@ def test_create_lead_triggers_both_email_methods(client, email_service):
     assert prospect_lead.id == response.json()["id"]
     assert prospect_lead.email == "ada@example.com"
     assert attorney_lead.id == prospect_lead.id
+
+    # The background email task runs synchronously within the test client's
+    # request/response cycle, so the recorded status is already updated by
+    # the time we re-fetch the lead. The `email_service` fixture is a Mock
+    # that doesn't raise, so both attempts count as successful.
+    fetched = client.get(f"/api/leads/{response.json()['id']}").json()
+    assert fetched["prospect_email_status"] == "SENT"
+    assert fetched["attorney_email_status"] == "SENT"
+
+
+def test_create_lead_records_email_send_failure(client, email_service):
+    email_service.send_prospect_confirmation.side_effect = RuntimeError("boom")
+
+    created = create_lead(client).json()
+
+    fetched = client.get(f"/api/leads/{created['id']}").json()
+    assert fetched["prospect_email_status"] == "FAILED"
+    assert fetched["attorney_email_status"] == "SENT"
+
+
+def test_create_lead_email_status_starts_pending_before_background_task(client):
+    created = create_lead(client).json()
+    # The initial creation response is serialized before the background
+    # email task runs, so it must reflect the not-yet-attempted state.
+    assert created["prospect_email_status"] == "PENDING"
+    assert created["attorney_email_status"] == "PENDING"
 
 
 def test_create_lead_accepts_docx(client):
@@ -372,7 +398,18 @@ def test_update_lead_status(client):
     created = create_lead(client).json()
     response = client.patch(f"/api/leads/{created['id']}", json={"status": "REACHED_OUT"})
     assert response.status_code == 200
-    assert response.json()["status"] == "REACHED_OUT"
+    data = response.json()
+    assert data["status"] == "REACHED_OUT"
+    assert data["resolved_by"] == config.ATTORNEY_EMAIL
+    assert data["resolved_at"] is not None
+
+    # Reverting to PENDING clears resolved_by and resolved_at
+    revert_resp = client.patch(f"/api/leads/{created['id']}", json={"status": "PENDING"})
+    assert revert_resp.status_code == 200
+    revert_data = revert_resp.json()
+    assert revert_data["status"] == "PENDING"
+    assert revert_data["resolved_by"] is None
+    assert revert_data["resolved_at"] is None
 
 
 def test_update_lead_fields(client):

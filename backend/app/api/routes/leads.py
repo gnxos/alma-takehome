@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import (
@@ -15,11 +16,12 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.security import get_current_attorney_email
 from app.database.session import get_db
-from app.models.lead import Lead, LeadStatus
+from app.models.lead import EmailDeliveryStatus, Lead, LeadStatus
 from app.repositories import leads as lead_repository
 from app.schemas.leads import (
     LeadBase,
@@ -28,11 +30,7 @@ from app.schemas.leads import (
     LeadOut,
     LeadUpdate,
 )
-from app.services.email_service import (
-    EmailService,
-    get_email_service,
-    send_lead_emails_safely,
-)
+from app.services.email_service import EmailService, get_email_service
 from app.services.resume_storage import (
     ResumeStorageError,
     delete_stored_resume,
@@ -59,6 +57,8 @@ async def create_lead(
     last_name: str = Form(...),
     email: str = Form(...),
     resume: UploadFile = File(...),
+    phone: str | None = Form(None),
+    message: str | None = Form(None),
     db: Session = Depends(get_db),
     email_service: EmailService = Depends(get_email_service),
 ) -> LeadCreateResult:
@@ -70,7 +70,13 @@ async def create_lead(
         )
 
     try:
-        validated = LeadBase(first_name=first_name, last_name=last_name, email=email)
+        validated = LeadBase(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=phone,
+            message=message,
+        )
     except ValidationError as exc:
         raise HTTPException(
             status_code=422,
@@ -100,6 +106,8 @@ async def create_lead(
             email=validated.email,
             resume_filename=stored_resume.original_filename,
             resume_path=str(stored_resume.path),
+            phone=validated.phone,
+            message=validated.message,
         )
     except Exception as exc:
         delete_stored_resume(stored_resume)
@@ -112,7 +120,9 @@ async def create_lead(
             detail="Could not save lead",
         ) from exc
 
-    background_tasks.add_task(send_lead_emails_safely, email_service, lead)
+    background_tasks.add_task(
+        _send_lead_notifications_and_record_status, email_service, db.get_bind(), lead.id
+    )
     return LeadCreateResult.model_validate(lead)
 
 
@@ -160,7 +170,7 @@ def update_lead(
     _attorney_email: str = _require_attorney,
 ) -> Lead:
     lead = _get_lead_or_404(db, lead_id)
-    return lead_repository.update(db, lead, changes)
+    return lead_repository.update(db, lead, changes, resolved_by=_attorney_email)
 
 
 @router.get("/{lead_id}/resume")
@@ -181,3 +191,53 @@ def _get_lead_or_404(db: Session, lead_id: str) -> Lead:
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
+
+
+def _send_one_email_safely(kind: str, lead: Lead, send: Callable[[], None]) -> bool:
+    """Mirrors EmailService's own internal safe-send behavior (log the
+    exception type only — provider errors may contain credentials or
+    request headers — never the exception text) so callers that need a
+    success/failure result can still get one without losing that safety."""
+    try:
+        send()
+        return True
+    except Exception as exc:
+        logger.error(
+            "Failed to send %s email (%s)",
+            kind,
+            type(exc).__name__,
+            extra={"lead_id": lead.id},
+        )
+        return False
+
+
+def _send_lead_notifications_and_record_status(
+    email_service: EmailService, engine: Engine, lead_id: str
+) -> None:
+    """Runs as a background task, after the response has already been sent —
+    the request's `db` session is closed by then, so this opens its own,
+    bound to the same engine the request used (not a hardcoded global one,
+    so this stays correct under the test suite's overridden test database)."""
+    db = sessionmaker(bind=engine)()
+    try:
+        lead = lead_repository.get(db, lead_id)
+        if lead is None:
+            return
+        prospect_sent = _send_one_email_safely(
+            "prospect", lead, lambda: email_service.send_prospect_confirmation(lead)
+        )
+        attorney_sent = _send_one_email_safely(
+            "attorney", lead, lambda: email_service.send_attorney_notification(lead)
+        )
+        lead_repository.update_email_statuses(
+            db,
+            lead,
+            prospect_status=(
+                EmailDeliveryStatus.SENT if prospect_sent else EmailDeliveryStatus.FAILED
+            ),
+            attorney_status=(
+                EmailDeliveryStatus.SENT if attorney_sent else EmailDeliveryStatus.FAILED
+            ),
+        )
+    finally:
+        db.close()

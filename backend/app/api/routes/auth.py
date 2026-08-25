@@ -19,7 +19,8 @@ def login(payload: LoginRequest, response: Response) -> AttorneyOut:
             detail="Invalid credentials",
         )
 
-    token = create_access_token(config.ATTORNEY_EMAIL)
+    normalized_email = payload.email.strip().lower()
+    token = create_access_token(normalized_email)
     response.set_cookie(
         key=config.AUTH_COOKIE_NAME,
         value=token,
@@ -29,7 +30,7 @@ def login(payload: LoginRequest, response: Response) -> AttorneyOut:
         max_age=config.JWT_EXPIRE_MINUTES * 60,
         path="/",
     )
-    return AttorneyOut(email=config.ATTORNEY_EMAIL)
+    return AttorneyOut(email=normalized_email)
 
 
 @router.post("/logout")

@@ -178,6 +178,24 @@ export function EmailTicketsDrawer({
                     </a>
                   </dd>
 
+                  {ticket.resolved_by && (
+                    <>
+                      <dt className="text-label-sm text-ink-400">Resolved by</dt>
+                      <dd className="font-mono-alma text-mono-sm font-semibold text-navy-700">
+                        {ticket.resolved_by}
+                      </dd>
+                    </>
+                  )}
+
+                  {ticket.resolved_at && (
+                    <>
+                      <dt className="text-label-sm text-ink-400">Resolved at</dt>
+                      <dd className="text-ink-900">
+                        {new Date(ticket.resolved_at).toLocaleString()}
+                      </dd>
+                    </>
+                  )}
+
                   <dt className="text-label-sm text-ink-400">Submitted</dt>
                   <dd className="text-ink-900">
                     {new Date(ticket.created_at).toLocaleString()}
