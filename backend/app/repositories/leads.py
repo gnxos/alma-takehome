@@ -37,6 +37,9 @@ def create(
         except IntegrityError:
             db.rollback()
             continue
+        except Exception:
+            db.rollback()
+            raise
         db.refresh(lead)
         return lead
     raise RuntimeError("Could not generate a unique reference number")

@@ -7,6 +7,9 @@ leads.
 - `backend/` — FastAPI + SQLAlchemy (SQLite) API
 - `frontend/` — Next.js (App Router, TypeScript, Tailwind) web app
 
+> 📖 **Setup Guide**: See [LOCAL_RUN_GUIDE.md](./LOCAL_RUN_GUIDE.md)  
+> 📐 **Design Decisions & Architecture**: See [DESIGN.md](./DESIGN.md)
+
 ## Project structure
 
 The application is organized by responsibility so framework entry points stay
@@ -50,7 +53,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (docs at `/docs`)
-- Mailpit (caught email): `http://localhost:8025`
+- Mailpit (caught email inbox): `http://localhost:8025`
 
 The backend's SQLite database and uploaded resumes persist in named Docker
 volumes (`backend_data`, `backend_uploads`) across restarts.
@@ -75,9 +78,9 @@ python3 -m venv venv
 The API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 
 Config is read from environment variables (see `.env.example`): `DATABASE_URL`,
-`UPLOAD_DIR`, `CORS_ORIGINS`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`,
-`SMTP_PASSWORD`, `SMTP_USE_TLS`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
-`ATTORNEY_PASSWORD`, `JWT_SECRET`.
+`UPLOAD_DIR`, `CORS_ORIGINS`, `EMAIL_BACKEND`, `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_TIMEOUT_SECONDS`, `RESEND_API_KEY`, `EMAIL_FROM`, `ATTORNEY_EMAIL`,
+`FRONTEND_URL`, `ATTORNEY_PASSWORD`, `JWT_SECRET`.
 
 Run tests:
 
@@ -100,7 +103,7 @@ Run tests:
 
 A lead requires `first_name`, `last_name`, `email`, and a single `resume` file
 (`.pdf`, `.doc`, or `.docx`, 100 bytes–10MB). New leads start with status
-`PENDING`, receive an `INT-YYYY-NNNN` reference number, and can be transitioned
+`PENDING`, receive an `INT-YYYY-XXXXXX` reference number, and can be transitioned
 to `REACHED_OUT`. A repeat submission for the same normalized email while a
 ticket is still `PENDING` returns that existing ticket instead of creating a
 duplicate; once a lead has been marked `REACHED_OUT`, a new submission opens
@@ -122,8 +125,8 @@ container structure. Only one file may be uploaded per submission.
 
 ### Email notifications
 
-On lead creation, a confirmation email is sent to the prospect and a
-notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both over
+On lead creation, a confirmation email is sent to the prospect (including their ticket
+reference number) and a notification is sent to the attorney's inbox (`ATTORNEY_EMAIL`), both over
 SMTP. Sending happens in a FastAPI `BackgroundTask` *after* the response is
 returned, so a slow or unreachable mail server never delays lead creation —
 a failed send is logged and swallowed, never raised.
@@ -166,5 +169,5 @@ Runs at `http://localhost:3000`.
 
 - `/` — public lead submission form
 - `/login` — attorney sign-in
-- `/leads` — internal dashboard with status filters and an in-page lead detail modal (redirects to `/login` if not authenticated)
-- `/leads?ref=INT-YYYY-NNNN` — opens the matching lead directly in the dashboard
+- `/leads` — internal dashboard with status filters and an in-page lead detail view (redirects to `/login` if not authenticated)
+- `/leads?ref=INT-YYYY-XXXXXX` — opens the matching lead directly in the dashboard

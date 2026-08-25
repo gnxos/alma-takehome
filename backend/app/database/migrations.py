@@ -28,15 +28,8 @@ def init_db(target_engine: Engine | None = None) -> None:
     columns = {column["name"] for column in inspector.get_columns("leads")}
     
     new_columns = [
-        ("company", "VARCHAR"),
-        ("linkedin", "VARCHAR"),
         ("phone", "VARCHAR"),
-        ("country_of_birth", "VARCHAR"),
-        ("visas_of_interest", "VARCHAR"),
-        ("visa_sponsor", "VARCHAR"),
         ("message", "VARCHAR"),
-        ("how_did_you_hear", "VARCHAR"),
-        ("referral_code", "VARCHAR"),
         ("prospect_email_status", "VARCHAR DEFAULT 'PENDING'"),
         ("attorney_email_status", "VARCHAR DEFAULT 'PENDING'"),
     ]

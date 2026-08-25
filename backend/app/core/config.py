@@ -16,6 +16,11 @@ if DATABASE_URL.startswith("sqlite:///"):
     if _sqlite_file.parent:
         _sqlite_file.parent.mkdir(parents=True, exist_ok=True)
 
+# TODO (Production - AWS S3 Storage):
+# Set AWS_S3_BUCKET, AWS_REGION, and AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (or use IAM role)
+AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -30,20 +35,22 @@ DNS_LOOKUP_TIMEOUT = 3
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
-# Lead-notification emails are sent over SMTP. Defaults point at a local
-# Mailpit instance (https://mailpit.axllent.org) for development — run
-# `docker compose up mailpit` (or the standalone mailpit binary) and view
-# caught mail at http://localhost:8025. For production, point these at a
-# real relay (e.g. Resend's SMTP relay, smtp.resend.com:587, using an API
-# key as the password) via environment variables.
-SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "false").lower() == "true"
-
+# Lead-notification emails: EmailService supports three backends.
+# - "smtp" (default here): local dev — points at a local Mailpit instance
+#   (https://mailpit.axllent.org) by default; run `docker compose up mailpit`
+#   and view caught mail at http://localhost:8025.
+# - "resend": production — set EMAIL_BACKEND=resend and RESEND_API_KEY to
+#   send via Resend's HTTP API instead.
+# - "preview": logs the email instead of sending (used when a backend is
+#   selected but not fully configured, e.g. resend with no API key).
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "Alma <onboarding@alma.example.com>")
 ATTORNEY_EMAIL = os.getenv("ATTORNEY_EMAIL", "attorney@alma.example.com")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "smtp")
+SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
+SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TIMEOUT_SECONDS", "10"))
 
 ATTORNEY_PASSWORD = os.getenv("ATTORNEY_PASSWORD", "Alma123!")
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-insecure-secret-change-me")

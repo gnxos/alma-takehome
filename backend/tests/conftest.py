@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +12,8 @@ from app.core import config
 from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
-from app.services import email_notifications, email_validation
+from app.services import email_validation
+from app.services.email_service import EmailService, get_email_service
 
 
 @pytest.fixture(autouse=True)
@@ -21,16 +23,13 @@ def mock_dns_lookup(monkeypatch):
     monkeypatch.setattr(email_validation, "domain_has_mail_exchanger", lambda domain: True)
 
 
-@pytest.fixture(autouse=True)
-def mock_email_delivery(monkeypatch):
-    """Prevent tests from opening a real SMTP connection (to Mailpit or
-    otherwise). Individual tests can monkeypatch email_notifications._deliver
-    or ._send again to assert on outgoing mail."""
-    monkeypatch.setattr(email_notifications, "_deliver", lambda message, recipients: None)
+@pytest.fixture()
+def email_service():
+    return Mock(spec=EmailService)
 
 
 @pytest.fixture()
-def client():
+def client(email_service):
     tmp_dir = Path(tempfile.mkdtemp())
     db_path = tmp_dir / "test.db"
     config.UPLOAD_DIR = tmp_dir / "uploads"
@@ -50,6 +49,7 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_email_service] = lambda: email_service
 
     with TestClient(app) as test_client:
         # Most tests exercise the protected internal-dashboard endpoints, so

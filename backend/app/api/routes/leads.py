@@ -1,3 +1,5 @@
+import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import (
@@ -28,10 +30,15 @@ from app.schemas.leads import (
     LeadOut,
     LeadUpdate,
 )
-from app.services import email_notifications
-from app.services.resume_storage import ResumeStorageError, store_resume
+from app.services.email_service import EmailService, get_email_service
+from app.services.resume_storage import (
+    ResumeStorageError,
+    delete_stored_resume,
+    store_resume,
+)
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
+logger = logging.getLogger(__name__)
 
 # Lead creation is public. Every dashboard endpoint requires this dependency.
 _require_attorney = Depends(get_current_attorney_email)
@@ -53,6 +60,7 @@ async def create_lead(
     phone: str | None = Form(None),
     message: str | None = Form(None),
     db: Session = Depends(get_db),
+    email_service: EmailService = Depends(get_email_service),
 ) -> LeadCreateResult:
     form = await request.form()
     if len(form.getlist("resume")) > 1:
@@ -90,18 +98,30 @@ async def create_lead(
             detail=str(exc),
         ) from exc
 
-    lead = lead_repository.create(
-        db,
-        first_name=validated.first_name,
-        last_name=validated.last_name,
-        email=validated.email,
-        resume_filename=stored_resume.original_filename,
-        resume_path=str(stored_resume.path),
-        phone=validated.phone,
-        message=validated.message,
-    )
+    try:
+        lead = lead_repository.create(
+            db,
+            first_name=validated.first_name,
+            last_name=validated.last_name,
+            email=validated.email,
+            resume_filename=stored_resume.original_filename,
+            resume_path=str(stored_resume.path),
+            phone=validated.phone,
+            message=validated.message,
+        )
+    except Exception as exc:
+        delete_stored_resume(stored_resume)
+        logger.error(
+            "Failed to store lead (%s)",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save lead",
+        ) from exc
+
     background_tasks.add_task(
-        _send_lead_notifications_and_record_status, db.get_bind(), lead.id
+        _send_lead_notifications_and_record_status, email_service, db.get_bind(), lead.id
     )
     return LeadCreateResult.model_validate(lead)
 
@@ -173,7 +193,27 @@ def _get_lead_or_404(db: Session, lead_id: str) -> Lead:
     return lead
 
 
-def _send_lead_notifications_and_record_status(engine: Engine, lead_id: str) -> None:
+def _send_one_email_safely(kind: str, lead: Lead, send: Callable[[], None]) -> bool:
+    """Mirrors EmailService's own internal safe-send behavior (log the
+    exception type only — provider errors may contain credentials or
+    request headers — never the exception text) so callers that need a
+    success/failure result can still get one without losing that safety."""
+    try:
+        send()
+        return True
+    except Exception as exc:
+        logger.error(
+            "Failed to send %s email (%s)",
+            kind,
+            type(exc).__name__,
+            extra={"lead_id": lead.id},
+        )
+        return False
+
+
+def _send_lead_notifications_and_record_status(
+    email_service: EmailService, engine: Engine, lead_id: str
+) -> None:
     """Runs as a background task, after the response has already been sent —
     the request's `db` session is closed by then, so this opens its own,
     bound to the same engine the request used (not a hardcoded global one,
@@ -183,8 +223,12 @@ def _send_lead_notifications_and_record_status(engine: Engine, lead_id: str) -> 
         lead = lead_repository.get(db, lead_id)
         if lead is None:
             return
-        prospect_sent = email_notifications.send_prospect_email(lead)
-        attorney_sent = email_notifications.send_attorney_email(lead)
+        prospect_sent = _send_one_email_safely(
+            "prospect", lead, lambda: email_service.send_prospect_confirmation(lead)
+        )
+        attorney_sent = _send_one_email_safely(
+            "attorney", lead, lambda: email_service.send_attorney_notification(lead)
+        )
         lead_repository.update_email_statuses(
             db,
             lead,

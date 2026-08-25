@@ -18,6 +18,14 @@ class StoredResume:
     path: Path
 
 
+# TODO (Production - AWS S3 / Cloudflare R2 Object Storage):
+# For production storage of uploaded resumes:
+# 1. Initialize boto3 S3 client with IAM role / AWS credentials.
+# 2. Upload file stream to private S3 bucket:
+#    s3_client.upload_fileobj(resume.file, BUCKET_NAME, f"resumes/{stored_name}")
+# 3. Generate short-lived presigned GET URLs for authorized attorney downloads:
+#    url = s3_client.generate_presigned_url('get_object', Params={'Bucket': BUCKET_NAME, 'Key': key}, ExpiresIn=300)
+# 4. Configure S3 bucket lifecycle rules for automated retention / archival.
 async def store_resume(resume: UploadFile) -> StoredResume:
     extension = Path(resume.filename or "").suffix.lower()
     if extension not in config.ALLOWED_RESUME_EXTENSIONS:
@@ -47,3 +55,7 @@ async def store_resume(resume: UploadFile) -> StoredResume:
         original_filename=resume.filename or stored_name,
         path=stored_path,
     )
+
+
+def delete_stored_resume(stored_resume: StoredResume) -> None:
+    stored_resume.path.unlink(missing_ok=True)

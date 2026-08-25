@@ -1,6 +1,6 @@
 services:
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.30.6
     ports:
       - "8025:8025" # web UI — view caught mail at http://localhost:8025
       - "1025:1025" # SMTP
@@ -19,10 +19,13 @@ services:
       DATABASE_URL: sqlite:////app/data/leads.db
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: http://localhost:3000
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-Alma <onboarding@alma.example.com>}
       ATTORNEY_EMAIL: ${ATTORNEY_EMAIL:-attorney@alma.example.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads
